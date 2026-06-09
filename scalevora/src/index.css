@@ -3,22 +3,27 @@
 @tailwind utilities;
 
 :root {
-  /* Dark theme, amber accent — VoraLab starting tokens */
-  --bg-primary: #0A0A0A;
-  --bg-surface: #141414;
-  --bg-elevated: #1E1E1E;
-  --accent: #F0B429;
-  --accent-dim: #8B6914;
-  --text-primary: #F5F5F5;
-  --text-secondary: #888888;
-  --border: #2A2A2A;
-  --success: #4ADE80;
-  --error: #F87171;
+  /* VoraLab brand tokens — matches voralab.id */
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --border: #1f1f1f;
+  --text: #f0ede8;
+  --muted: #5a5754;
+  --accent: #e8ff47;
+  --accent2: #ff6b35;
+  --success: #4ade80;
+  --error: #f87171;
 
   color-scheme: dark;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Syne', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
@@ -26,7 +31,64 @@ body,
 #root {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--bg);
+  color: var(--text);
   min-height: 100svh;
+}
+
+/* Subtle reveal-on-mount for hero copy */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.7s ease forwards;
+  opacity: 0;
+}
+.fade-up-d1 {
+  animation-delay: 0.1s;
+}
+.fade-up-d2 {
+  animation-delay: 0.25s;
+}
+.fade-up-d3 {
+  animation-delay: 0.4s;
+}
+
+/* Hero grid + glow backgrounds, signature VoraLab visual */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
+  pointer-events: none;
+}
+
+.hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(232, 255, 71, 0.06) 0%, transparent 70%);
+  top: 5%;
+  left: -10%;
+  pointer-events: none;
+}
+
+.hero-glow-2 {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255, 107, 53, 0.05) 0%, transparent 70%);
+  bottom: 10%;
+  right: 0%;
+  pointer-events: none;
 }

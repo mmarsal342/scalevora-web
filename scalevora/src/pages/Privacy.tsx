@@ -11,7 +11,7 @@ export function Privacy() {
       <h1 className="mt-6 font-display text-4xl font-bold">
         {t('page.privacy.title')}
       </h1>
-      <p className="mt-6 text-text-secondary">
+      <p className="mt-6 text-muted">
         [Stub] Zero data collection on images. Anonymous analytics via Plausible.
         Anonymous error reports via Sentry.
       </p>

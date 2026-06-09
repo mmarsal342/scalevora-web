@@ -32,7 +32,7 @@ export function ProcessingOverlay() {
     const start = startedAtRef.current
     if (start === null || progress <= 0) return
     const elapsedSec = (performance.now() - start) / 1000
-    const rate = progress / elapsedSec // %/sec
+    const rate = progress / elapsedSec
     const remaining = (100 - progress) / rate
     setEta(formatETA(remaining))
   }, [progress, status])
@@ -40,27 +40,41 @@ export function ProcessingOverlay() {
   if (status !== 'processing' && status !== 'cancelling') return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/80 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-bg-surface p-8 text-center">
-        <p className="font-display text-2xl text-text-primary">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/85 px-6 backdrop-blur-md">
+      <div className="relative w-full max-w-md border border-border bg-surface p-10">
+        {/* Corner ticks */}
+        <span className="absolute left-2 top-2 h-3 w-3 border-l border-t border-accent" />
+        <span className="absolute right-2 top-2 h-3 w-3 border-r border-t border-accent" />
+        <span className="absolute bottom-2 left-2 h-3 w-3 border-b border-l border-accent" />
+        <span className="absolute bottom-2 right-2 h-3 w-3 border-b border-r border-accent" />
+
+        <span className="inline-flex items-center gap-3 font-mono text-[10px] uppercase tracking-widest text-accent">
+          <span className="h-px w-6 bg-accent" />
+          {status === 'cancelling' ? 'Cancelling' : 'Processing'}
+        </span>
+
+        <p className="mt-4 font-display text-2xl font-bold tracking-tight text-text">
           {status === 'cancelling' ? 'Cancelling…' : 'Upscaling…'}
         </p>
 
-        <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-bg-elevated">
+        <div className="mt-6 h-[2px] w-full overflow-hidden bg-border">
           <div
             className="h-full bg-accent transition-[width]"
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        <p className="mt-3 font-mono text-sm text-text-secondary">
-          {progress}% · {status === 'processing' ? eta : 'finishing current tile'}
+        <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-muted">
+          {progress}% ·{' '}
+          <span className="text-text">
+            {status === 'processing' ? eta : 'finishing current tile'}
+          </span>
         </p>
 
         <button
           onClick={cancelUpscale}
           disabled={status === 'cancelling'}
-          className="mt-6 rounded-lg border border-border px-4 py-2 font-mono text-sm text-text-primary hover:border-error hover:text-error disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-8 border border-border px-5 py-3 font-mono text-xs uppercase tracking-wider text-muted hover:border-error hover:text-error disabled:cursor-not-allowed disabled:opacity-50"
         >
           {status === 'cancelling' ? 'Cancelling…' : 'Cancel'}
         </button>

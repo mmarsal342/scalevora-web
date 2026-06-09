@@ -11,7 +11,7 @@ export function FAQ() {
       <h1 className="mt-6 font-display text-4xl font-bold">
         {t('page.faq.title')}
       </h1>
-      <p className="mt-6 text-text-secondary">
+      <p className="mt-6 text-muted">
         [Stub] How it works, offline, browser support, HEIC, why free.
       </p>
     </div>

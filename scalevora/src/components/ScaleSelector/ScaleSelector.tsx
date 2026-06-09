@@ -12,17 +12,17 @@ export function ScaleSelector() {
     setScale(next)
   }
 
-  const btnBase =
-    'rounded-lg border px-4 py-2 font-mono text-sm transition-colors'
+  const base =
+    'border px-5 py-3 font-mono text-xs uppercase tracking-wider transition-colors'
 
   return (
-    <div className="inline-flex gap-2">
+    <div className="inline-flex -space-x-px">
       <button
         onClick={() => pick(2)}
-        className={`${btnBase} ${
+        className={`${base} ${
           scale === 2
-            ? 'border-accent bg-accent text-bg-primary'
-            : 'border-border bg-bg-surface text-text-primary hover:border-accent/50'
+            ? 'border-accent bg-accent text-bg'
+            : 'border-border bg-surface text-muted hover:text-text'
         }`}
       >
         2×
@@ -31,12 +31,12 @@ export function ScaleSelector() {
         onClick={() => pick(4)}
         disabled={mobile}
         title={mobile ? '4× requires desktop' : undefined}
-        className={`${btnBase} ${
+        className={`${base} ${
           mobile
-            ? 'cursor-not-allowed border-border bg-bg-surface text-text-secondary opacity-50'
+            ? 'cursor-not-allowed border-border bg-surface text-muted opacity-40'
             : scale === 4
-              ? 'border-accent bg-accent text-bg-primary'
-              : 'border-border bg-bg-surface text-text-primary hover:border-accent/50'
+              ? 'border-accent bg-accent text-bg'
+              : 'border-border bg-surface text-muted hover:text-text'
         }`}
       >
         4×

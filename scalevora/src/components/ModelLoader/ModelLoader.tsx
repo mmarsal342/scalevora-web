@@ -10,9 +10,9 @@ export function ModelLoader() {
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center gap-2 font-mono text-xs text-text-secondary">
+      <div className="flex items-center gap-2 font-mono text-xs text-muted">
         <span>Loading AI engine…</span>
-        <div className="h-1 w-24 overflow-hidden rounded-full bg-bg-elevated">
+        <div className="h-1 w-24 overflow-hidden rounded-full bg-surface">
           <div
             className="h-full bg-accent transition-[width]"
             style={{ width: `${progress}%` }}
@@ -25,7 +25,7 @@ export function ModelLoader() {
 
   if (status === 'ready') {
     return (
-      <span className="font-mono text-xs text-text-secondary">
+      <span className="font-mono text-xs text-muted">
         {backendLabel(backend)}
       </span>
     )

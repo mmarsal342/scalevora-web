@@ -41,9 +41,12 @@ export function SaveButton() {
   return (
     <button
       onClick={save}
-      className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 font-mono text-sm font-medium text-bg-primary transition-transform hover:scale-[1.02]"
+      className="inline-flex items-center gap-2 bg-accent px-7 py-3 font-display text-sm font-bold tracking-wide text-bg transition-transform hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(232,255,71,0.25)]"
     >
-      💾 Save {scale}× {cfg.extension.toUpperCase()} ({sizeLabel})
+      <span>↓ Save {scale}× {cfg.extension.toUpperCase()}</span>
+      <span className="font-mono text-[10px] font-normal uppercase tracking-wider opacity-70">
+        {sizeLabel}
+      </span>
     </button>
   )
 }

@@ -11,7 +11,7 @@ export function ToS() {
       <h1 className="mt-6 font-display text-4xl font-bold">
         {t('page.tos.title')}
       </h1>
-      <p className="mt-6 text-text-secondary">
+      <p className="mt-6 text-muted">
         [Stub] Terms of Service content goes here. AS IS, no warranty, user
         responsible for content processed.
       </p>

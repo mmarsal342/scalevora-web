@@ -5,27 +5,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: {
-          primary: 'var(--bg-primary)',
-          surface: 'var(--bg-surface)',
-          elevated: 'var(--bg-elevated)',
-        },
-        accent: {
-          DEFAULT: 'var(--accent)',
-          dim: 'var(--accent-dim)',
-        },
-        text: {
-          primary: 'var(--text-primary)',
-          secondary: 'var(--text-secondary)',
-        },
+        bg: 'var(--bg)',
+        surface: 'var(--surface)',
         border: 'var(--border)',
+        text: 'var(--text)',
+        muted: 'var(--muted)',
+        accent: 'var(--accent)',
+        accent2: 'var(--accent2)',
         success: 'var(--success)',
         error: 'var(--error)',
       },
       fontFamily: {
         display: ['Syne', 'sans-serif'],
-        body: ['"DM Sans"', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'monospace'],
+        mono: ['"DM Mono"', 'monospace'],
+      },
+      letterSpacing: {
+        tightest: '-0.04em',
+        tighter: '-0.03em',
+        wider: '0.05em',
+        widest: '0.12em',
       },
     },
   },

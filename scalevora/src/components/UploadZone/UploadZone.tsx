@@ -37,10 +37,10 @@ export function UploadZone() {
         onDragLeave={() => setIsDragOver(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-2xl border-2 border-dashed p-12 text-center transition-all md:p-16 ${
+        className={`group relative cursor-pointer border border-dashed p-12 transition-all md:p-20 ${
           isDragOver
-            ? 'scale-[1.01] border-accent bg-bg-elevated'
-            : 'border-border bg-bg-surface hover:border-accent/50'
+            ? 'border-accent bg-surface'
+            : 'border-border bg-surface/40 hover:border-accent/40 hover:bg-surface'
         } ${error ? 'border-error' : ''}`}
       >
         <input
@@ -50,14 +50,23 @@ export function UploadZone() {
           onChange={onChange}
           className="hidden"
         />
+
+        {/* Corner ticks for that brand precision feel */}
+        <span className="absolute left-2 top-2 h-3 w-3 border-l border-t border-border group-hover:border-accent" />
+        <span className="absolute right-2 top-2 h-3 w-3 border-r border-t border-border group-hover:border-accent" />
+        <span className="absolute bottom-2 left-2 h-3 w-3 border-b border-l border-border group-hover:border-accent" />
+        <span className="absolute bottom-2 right-2 h-3 w-3 border-b border-r border-border group-hover:border-accent" />
+
         {isLoading ? (
-          <p className="font-display text-2xl text-text-primary">Reading image…</p>
+          <p className="text-center font-display text-2xl text-text">
+            Reading image…
+          </p>
         ) : (
           <>
-            <p className="font-display text-2xl text-text-primary">
+            <p className="text-center font-display text-2xl font-bold tracking-tight text-text md:text-3xl">
               {t('home.upload.cta')}
             </p>
-            <p className="mt-2 font-mono text-sm text-text-secondary">
+            <p className="mt-3 text-center font-mono text-[11px] uppercase tracking-widest text-muted">
               {t('home.upload.formats')}
             </p>
           </>
@@ -65,7 +74,7 @@ export function UploadZone() {
       </div>
 
       {error && (
-        <p className="mt-3 text-center font-mono text-sm text-error">
+        <p className="mt-3 text-center font-mono text-xs uppercase tracking-wider text-error">
           ⚠ {error}
         </p>
       )}
