@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark theme, amber accent — VoraLab starting tokens */
+  --bg-primary: #0A0A0A;
+  --bg-surface: #141414;
+  --bg-elevated: #1E1E1E;
+  --accent: #F0B429;
+  --accent-dim: #8B6914;
+  --text-primary: #F5F5F5;
+  --text-secondary: #888888;
+  --border: #2A2A2A;
+  --success: #4ADE80;
+  --error: #F87171;
+
+  color-scheme: dark;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100svh;
+}
