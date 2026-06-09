@@ -13,8 +13,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // Let Vite pre-bundle everything via esbuild. Earlier guidance to exclude
+  // upscaler/tfjs is stale — without pre-bundling, `long` (transitive UMD
+  // dep of TF.js) crashes the browser with "module is not defined".
+  // We explicitly include the chunk roots so esbuild walks them once and
+  // hands the browser proper ES modules.
   optimizeDeps: {
-    exclude: ['upscaler', '@tensorflow/tfjs'],
+    include: [
+      'upscaler',
+      '@upscalerjs/esrgan-slim/2x',
+      '@upscalerjs/esrgan-slim/4x',
+      '@tensorflow/tfjs',
+      'long',
+    ],
   },
   worker: {
     format: 'es',
