@@ -25,6 +25,7 @@ interface AppState {
   originalDataUrl: string | null
   originalDimensions: Dimensions | null
   croppedBlob: Blob | null
+  croppedDimensions: Dimensions | null
 
   // Processing
   processingStatus: ProcessingStatus
@@ -50,7 +51,7 @@ interface AppActions {
     dataUrl: string,
     dimensions: Dimensions,
   ) => void
-  setCroppedBlob: (blob: Blob | null) => void
+  setCroppedBlob: (blob: Blob | null, dimensions?: Dimensions | null) => void
 
   setProcessingStatus: (status: ProcessingStatus) => void
   setProcessingProgress: (progress: number) => void
@@ -73,6 +74,7 @@ const initialState: AppState = {
   originalDataUrl: null,
   originalDimensions: null,
   croppedBlob: null,
+  croppedDimensions: null,
   processingStatus: 'idle',
   processingProgress: 0,
   resultBlob: null,
@@ -92,7 +94,8 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
 
   setOriginalFile: (originalFile, originalFormat, originalDataUrl, originalDimensions) =>
     set({ originalFile, originalFormat, originalDataUrl, originalDimensions }),
-  setCroppedBlob: (croppedBlob) => set({ croppedBlob }),
+  setCroppedBlob: (croppedBlob, croppedDimensions = null) =>
+    set({ croppedBlob, croppedDimensions }),
 
   setProcessingStatus: (processingStatus) => set({ processingStatus }),
   setProcessingProgress: (processingProgress) =>

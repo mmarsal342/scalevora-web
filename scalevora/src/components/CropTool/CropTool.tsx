@@ -13,6 +13,26 @@ interface CropToolProps {
   onApply: () => void
 }
 
+/**
+ * react-image-crop returns coords in the rendered <img>'s CSS pixel space.
+ * Our source blob is at natural resolution — we need to scale before we
+ * draw to canvas, or the crop region (and reported size) is wrong.
+ */
+function toNaturalCrop(
+  crop: PixelCrop,
+  img: HTMLImageElement,
+): PixelCrop {
+  const sx = img.naturalWidth / img.width
+  const sy = img.naturalHeight / img.height
+  return {
+    unit: 'px',
+    x: Math.round(crop.x * sx),
+    y: Math.round(crop.y * sy),
+    width: Math.round(crop.width * sx),
+    height: Math.round(crop.height * sy),
+  }
+}
+
 export function CropTool({ onSkip, onApply }: CropToolProps) {
   const originalFile = useAppStore((s) => s.originalFile)
   const originalDataUrl = useAppStore((s) => s.originalDataUrl)
@@ -22,37 +42,38 @@ export function CropTool({ onSkip, onApply }: CropToolProps) {
 
   const imgRef = useRef<HTMLImageElement>(null)
   const [crop, setCrop] = useState<Crop>(defaultCrop())
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null)
+  const [displayCrop, setDisplayCrop] = useState<PixelCrop | null>(null)
   const [busy, setBusy] = useState(false)
 
   if (!originalFile || !originalDataUrl || !originalDimensions) return null
 
-  // What the user will actually upscale: a pixel-space crop derived from the
-  // current selection, or the full image if they skip.
-  const effective: PixelCrop = completedCrop ?? {
-    unit: 'px',
-    x: 0,
-    y: 0,
-    width: originalDimensions.width,
-    height: originalDimensions.height,
-  }
+  // The natural-pixel crop derived from the current display selection.
+  const naturalCrop: PixelCrop | null =
+    displayCrop && imgRef.current ? toNaturalCrop(displayCrop, imgRef.current) : null
 
-  const output = computeOutputDimensions(
-    { width: effective.width, height: effective.height },
-    scale,
-  )
+  const cropDims = naturalCrop
+    ? { width: naturalCrop.width, height: naturalCrop.height }
+    : originalDimensions
+
+  const output = computeOutputDimensions(cropDims, scale)
 
   async function apply() {
-    if (!originalFile || !completedCrop) {
-      // No selection means "use the full image" — clear any prior crop.
+    if (!originalFile) return
+
+    // No active selection (user opened crop, didn't drag) → equivalent to skip.
+    if (!naturalCrop) {
       setCroppedBlob(null)
       onApply()
       return
     }
+
     setBusy(true)
     try {
-      const blob = await getCroppedBlob(originalFile, completedCrop)
-      setCroppedBlob(blob)
+      const blob = await getCroppedBlob(originalFile, naturalCrop)
+      setCroppedBlob(blob, {
+        width: naturalCrop.width,
+        height: naturalCrop.height,
+      })
       onApply()
     } finally {
       setBusy(false)
@@ -70,7 +91,7 @@ export function CropTool({ onSkip, onApply }: CropToolProps) {
         <ReactCrop
           crop={crop}
           onChange={(_px, percent) => setCrop(percent)}
-          onComplete={(c) => setCompletedCrop(c)}
+          onComplete={(c) => setDisplayCrop(c)}
           minWidth={48}
           minHeight={48}
           keepSelection
@@ -87,7 +108,7 @@ export function CropTool({ onSkip, onApply }: CropToolProps) {
       <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
         Crop:{' '}
         <span className="text-text">
-          {Math.round(effective.width)}×{Math.round(effective.height)}
+          {cropDims.width}×{cropDims.height}
         </span>
         {' · '}
         Output {scale}×:{' '}

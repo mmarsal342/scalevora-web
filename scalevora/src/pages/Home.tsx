@@ -30,6 +30,7 @@ export function Home() {
   const originalDataUrl = useAppStore((s) => s.originalDataUrl)
   const originalDimensions = useAppStore((s) => s.originalDimensions)
   const croppedBlob = useAppStore((s) => s.croppedBlob)
+  const croppedDimensions = useAppStore((s) => s.croppedDimensions)
   const resultDimensions = useAppStore((s) => s.resultDimensions)
   const resultBlob = useAppStore((s) => s.resultBlob)
   const scale = useAppStore((s) => s.scaleFactor)
@@ -76,26 +77,16 @@ export function Home() {
     return () => URL.revokeObjectURL(url)
   }, [resultBlob])
 
-  // Input dimensions for stats: cropped if available, otherwise original.
-  const inputDims = useMemo(() => {
-    if (!originalDimensions) return null
-    // We don't track cropped dimensions in the store; if there's a crop,
-    // result dims / scale gives us the input dims after the fact.
-    if (resultDimensions) {
-      return {
-        width: resultDimensions.width / scale,
-        height: resultDimensions.height / scale,
-      }
-    }
-    return originalDimensions
-  }, [originalDimensions, resultDimensions, scale])
+  // Input dimensions for stats — prefer the cropped size when a crop exists,
+  // otherwise the full original.
+  const inputDims = useMemo(
+    () => croppedDimensions ?? originalDimensions,
+    [croppedDimensions, originalDimensions],
+  )
 
   const previewDims = useMemo(
-    () =>
-      originalDimensions
-        ? computeOutputDimensions(originalDimensions, scale)
-        : null,
-    [originalDimensions, scale],
+    () => (inputDims ? computeOutputDimensions(inputDims, scale) : null),
+    [inputDims, scale],
   )
 
   return (
@@ -183,9 +174,9 @@ export function Home() {
               </button>
             </div>
 
-            {previewDims && (
+            {previewDims && inputDims && (
               <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
-                {originalDimensions.width}×{originalDimensions.height} →{' '}
+                {inputDims.width}×{inputDims.height} →{' '}
                 <span className="text-text">
                   {previewDims.width}×{previewDims.height}
                 </span>
@@ -206,7 +197,7 @@ export function Home() {
             />
 
             <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
-              {Math.round(inputDims.width)}×{Math.round(inputDims.height)} →{' '}
+              {inputDims.width}×{inputDims.height} →{' '}
               <span className="text-text">
                 {resultDimensions.width}×{resultDimensions.height}
               </span>{' '}
