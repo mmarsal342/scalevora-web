@@ -4,7 +4,9 @@ import { ToS } from '@/pages/ToS'
 import { Privacy } from '@/pages/Privacy'
 import { FAQ } from '@/pages/FAQ'
 import { useLocale } from '@/hooks/useLocale'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { ModelLoader } from '@/components/ModelLoader/ModelLoader'
+import { UpdatePrompt } from '@/components/UpdatePrompt/UpdatePrompt'
 
 function Logo({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
   const cls =
@@ -15,6 +17,16 @@ function Logo({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
     <span className={cls}>
       <span className="text-muted font-normal">Scale</span>
       <span className="text-accent">Vora</span>
+    </span>
+  )
+}
+
+function OfflineBadge() {
+  const online = useOnlineStatus()
+  if (online) return null
+  return (
+    <span className="border border-border bg-surface px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-accent2">
+      ● Offline
     </span>
   )
 }
@@ -30,6 +42,7 @@ function Header() {
         </span>
       </Link>
       <div className="flex items-center gap-5">
+        <OfflineBadge />
         <ModelLoader />
         <button
           onClick={() => switchLocale(locale === 'en' ? 'id' : 'en')}
@@ -96,6 +109,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <UpdatePrompt />
     </div>
   )
 }

@@ -6,17 +6,11 @@ import { UploadZone } from '@/components/UploadZone/UploadZone'
 import { ScaleSelector } from '@/components/ScaleSelector/ScaleSelector'
 import { ProcessingOverlay } from '@/components/ProcessingOverlay/ProcessingOverlay'
 import { SaveButton } from '@/components/SaveButton/SaveButton'
+import { CropTool } from '@/components/CropTool/CropTool'
+import { BeforeAfterSlider } from '@/components/BeforeAfterSlider/BeforeAfterSlider'
 import { computeOutputDimensions } from '@/utils/imageUtils'
 
-type ViewState = 'empty' | 'uploaded' | 'done'
-
-function useViewState(): ViewState {
-  const original = useAppStore((s) => s.originalFile)
-  const result = useAppStore((s) => s.resultBlob)
-  if (result) return 'done'
-  if (original) return 'uploaded'
-  return 'empty'
-}
+type ViewState = 'empty' | 'cropping' | 'preview' | 'done'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -29,26 +23,48 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export function Home() {
   const { t } = useLocale()
-  const view = useViewState()
   const { runUpscale } = useUpscaler()
   const reset = useAppStore((s) => s.reset)
 
+  const originalFile = useAppStore((s) => s.originalFile)
   const originalDataUrl = useAppStore((s) => s.originalDataUrl)
   const originalDimensions = useAppStore((s) => s.originalDimensions)
+  const croppedBlob = useAppStore((s) => s.croppedBlob)
   const resultDimensions = useAppStore((s) => s.resultDimensions)
   const resultBlob = useAppStore((s) => s.resultBlob)
   const scale = useAppStore((s) => s.scaleFactor)
 
-  const outputDims = useMemo(
-    () =>
-      originalDimensions
-        ? computeOutputDimensions(originalDimensions, scale)
-        : null,
-    [originalDimensions, scale],
-  )
+  // 'cropping' is the default once an image is loaded — users coming for
+  // reframing land in the right place by default. They can Skip to go
+  // straight to preview, which keeps the full image.
+  const [stage, setStage] = useState<'cropping' | 'preview'>('cropping')
 
-  // Create + revoke the result preview URL via effect so the prior blob's
-  // URL is released the moment a new result lands (or the user resets).
+  // Reset the local stage whenever the source image changes (new upload).
+  useEffect(() => {
+    if (originalFile) {
+      setStage('cropping')
+    }
+  }, [originalFile])
+
+  const view: ViewState = useMemo(() => {
+    if (resultBlob) return 'done'
+    if (!originalFile) return 'empty'
+    return stage
+  }, [resultBlob, originalFile, stage])
+
+  // Cropped preview URL (only used in the preview stage when a crop is set).
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!croppedBlob) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(croppedBlob)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [croppedBlob])
+
+  // Result preview URL.
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   useEffect(() => {
     if (!resultBlob) {
@@ -59,6 +75,28 @@ export function Home() {
     setResultUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [resultBlob])
+
+  // Input dimensions for stats: cropped if available, otherwise original.
+  const inputDims = useMemo(() => {
+    if (!originalDimensions) return null
+    // We don't track cropped dimensions in the store; if there's a crop,
+    // result dims / scale gives us the input dims after the fact.
+    if (resultDimensions) {
+      return {
+        width: resultDimensions.width / scale,
+        height: resultDimensions.height / scale,
+      }
+    }
+    return originalDimensions
+  }, [originalDimensions, resultDimensions, scale])
+
+  const previewDims = useMemo(
+    () =>
+      originalDimensions
+        ? computeOutputDimensions(originalDimensions, scale)
+        : null,
+    [originalDimensions, scale],
+  )
 
   return (
     <div className="relative">
@@ -97,14 +135,29 @@ export function Home() {
         </section>
       )}
 
-      {view === 'uploaded' && originalDataUrl && originalDimensions && (
+      {view === 'cropping' && originalDataUrl && originalDimensions && (
         <section className="px-6 py-16 md:px-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
-            <SectionLabel>Preview · Pick scale</SectionLabel>
+            <SectionLabel>{t('crop.label')}</SectionLabel>
+            <div className="flex items-center">
+              <ScaleSelector />
+            </div>
+            <CropTool
+              onSkip={() => setStage('preview')}
+              onApply={() => setStage('preview')}
+            />
+          </div>
+        </section>
+      )}
+
+      {view === 'preview' && originalDataUrl && originalDimensions && (
+        <section className="px-6 py-16 md:px-10">
+          <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
+            <SectionLabel>{t('preview.label')}</SectionLabel>
 
             <img
-              src={originalDataUrl}
-              alt="Original preview"
+              src={previewUrl ?? originalDataUrl}
+              alt="Preview"
               className="max-h-[60vh] border border-border"
             />
 
@@ -114,21 +167,27 @@ export function Home() {
                 onClick={() => void runUpscale()}
                 className="bg-accent px-8 py-3 font-display text-sm font-bold tracking-wide text-bg transition-transform hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(232,255,71,0.25)]"
               >
-                Upscale ↑
+                {t('preview.upscale')}
+              </button>
+              <button
+                onClick={() => setStage('cropping')}
+                className="border border-border px-5 py-3 font-mono text-xs uppercase tracking-wider text-muted hover:border-muted hover:text-text"
+              >
+                {t('preview.crop')}
               </button>
               <button
                 onClick={reset}
                 className="border border-border px-5 py-3 font-mono text-xs uppercase tracking-wider text-muted hover:border-muted hover:text-text"
               >
-                Reset
+                {t('preview.reset')}
               </button>
             </div>
 
-            {outputDims && (
+            {previewDims && (
               <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
                 {originalDimensions.width}×{originalDimensions.height} →{' '}
                 <span className="text-text">
-                  {outputDims.width}×{outputDims.height}
+                  {previewDims.width}×{previewDims.height}
                 </span>
               </p>
             )}
@@ -136,19 +195,18 @@ export function Home() {
         </section>
       )}
 
-      {view === 'done' && resultUrl && resultDimensions && originalDimensions && (
+      {view === 'done' && resultUrl && resultDimensions && inputDims && (
         <section className="px-6 py-16 md:px-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
-            <SectionLabel>Done</SectionLabel>
+            <SectionLabel>{t('done.label')}</SectionLabel>
 
-            <img
-              src={resultUrl}
-              alt="Upscaled result"
-              className="max-h-[60vh] border border-border"
+            <BeforeAfterSlider
+              beforeSrc={previewUrl ?? originalDataUrl ?? ''}
+              afterSrc={resultUrl}
             />
 
             <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
-              {originalDimensions.width}×{originalDimensions.height} →{' '}
+              {Math.round(inputDims.width)}×{Math.round(inputDims.height)} →{' '}
               <span className="text-text">
                 {resultDimensions.width}×{resultDimensions.height}
               </span>{' '}
@@ -161,7 +219,7 @@ export function Home() {
                 onClick={reset}
                 className="border border-border px-5 py-3 font-mono text-xs uppercase tracking-wider text-muted hover:border-muted hover:text-text"
               >
-                Process new
+                {t('done.processNew')}
               </button>
             </div>
           </div>
