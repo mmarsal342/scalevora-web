@@ -10,6 +10,7 @@ type UpscalerInstance = {
     padding?: number
     progress?: (amount: number) => void
     signal?: AbortSignal
+    awaitNextFrame?: boolean
     output?: 'base64' | 'tensor'
   }) => Promise<string>
   abort: () => void

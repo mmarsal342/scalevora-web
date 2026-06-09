@@ -77,8 +77,12 @@ export function useUpscaler() {
         patchSize,
         padding: 2,
         signal: abortController.signal,
+        // Yield to the event loop between tiles. Without this, the progress
+        // callback fires hundreds of times in a microtask burst, the main
+        // thread never repaints, and React's batched setState count blows
+        // past its safety threshold.
+        awaitNextFrame: true,
         progress: (amount: number) => {
-          // amount comes through as 0..1
           setProcessingProgress(Math.round(amount * 100))
         },
       })

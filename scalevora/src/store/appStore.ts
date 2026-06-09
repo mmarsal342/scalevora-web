@@ -95,7 +95,12 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
   setCroppedBlob: (croppedBlob) => set({ croppedBlob }),
 
   setProcessingStatus: (processingStatus) => set({ processingStatus }),
-  setProcessingProgress: (processingProgress) => set({ processingProgress }),
+  setProcessingProgress: (processingProgress) =>
+    set((state) =>
+      state.processingProgress === processingProgress
+        ? state
+        : { processingProgress },
+    ),
   setResult: (resultBlob, resultDimensions) =>
     set({ resultBlob, resultDimensions, processingStatus: 'done' }),
   setAbortController: (abortController) => set({ abortController }),

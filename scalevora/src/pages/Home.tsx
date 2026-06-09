@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store/appStore'
 import { useLocale } from '@/hooks/useLocale'
 import { useUpscaler } from '@/hooks/useUpscaler'
@@ -47,10 +47,18 @@ export function Home() {
     [originalDimensions, scale],
   )
 
-  const resultUrl = useMemo(
-    () => (resultBlob ? URL.createObjectURL(resultBlob) : null),
-    [resultBlob],
-  )
+  // Create + revoke the result preview URL via effect so the prior blob's
+  // URL is released the moment a new result lands (or the user resets).
+  const [resultUrl, setResultUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!resultBlob) {
+      setResultUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(resultBlob)
+    setResultUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [resultBlob])
 
   return (
     <div className="relative">
