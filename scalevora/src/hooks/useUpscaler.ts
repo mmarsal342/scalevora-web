@@ -1,5 +1,5 @@
 import { useAppStore } from '@/store/appStore'
-import { useModelLoader } from './useModelLoader'
+import { useModelLoader, disposeModelCache } from './useModelLoader'
 import { normalizedImageBitmap } from '@/utils/exifUtils'
 import {
   computeOutputDimensions,
@@ -110,6 +110,8 @@ export function useUpscaler() {
       throw e
     } finally {
       setAbortController(null)
+      // Clean up tfjs memory to prevent tensor leaks on subsequent uploads
+      await disposeModelCache()
     }
   }
 

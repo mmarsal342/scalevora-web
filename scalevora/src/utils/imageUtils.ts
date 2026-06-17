@@ -43,9 +43,10 @@ export function computeOutputDimensions(
 }
 
 export function pickPatchSize(longestSide: number): number {
-  if (longestSide < 512) return 128
-  if (longestSide < 1024) return 64
-  return 48
+  // Use a larger patch size (128). Smaller patch sizes (like 48)
+  // create hundreds of patches for large images, which causes tf.tidy() to track
+  // too many tensors and throw "RangeError: Set maximum size exceeded".
+  return 128
 }
 
 /**

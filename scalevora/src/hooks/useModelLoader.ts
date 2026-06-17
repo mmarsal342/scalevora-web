@@ -14,6 +14,7 @@ type UpscalerInstance = {
     output?: 'base64' | 'tensor'
   }) => Promise<string>
   abort: () => void
+  dispose: () => Promise<void>
 }
 
 const upscalerCache = new Map<ScaleFactor, UpscalerInstance>()
@@ -45,6 +46,18 @@ async function loadModelForScale(scale: ScaleFactor): Promise<UpscalerInstance> 
  * Page load stays instant; the user pays the model download cost when they
  * actually want to upscale.
  */
+export async function disposeModelCache() {
+  for (const instance of upscalerCache.values()) {
+    try {
+      if (instance.dispose) await instance.dispose()
+    } catch (e) {
+      console.error('Failed to dispose upscaler', e)
+    }
+  }
+  upscalerCache.clear()
+  useAppStore.getState().setModelStatus('idle')
+}
+
 export function useModelLoader() {
   const setModelStatus = useAppStore((s) => s.setModelStatus)
   const setModelProgress = useAppStore((s) => s.setModelProgress)
