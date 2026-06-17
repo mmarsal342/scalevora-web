@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store/appStore'
+import { useBatchStore } from '@/store/batchStore'
 import { useLocale } from '@/hooks/useLocale'
 import { useUpscaler } from '@/hooks/useUpscaler'
 import { UploadZone } from '@/components/UploadZone/UploadZone'
@@ -8,9 +9,11 @@ import { ProcessingOverlay } from '@/components/ProcessingOverlay/ProcessingOver
 import { SaveButton } from '@/components/SaveButton/SaveButton'
 import { CropTool } from '@/components/CropTool/CropTool'
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider/BeforeAfterSlider'
+import { BatchQueue } from '@/components/BatchQueue/BatchQueue'
+import { BatchUploadZone } from '@/components/BatchUploadZone/BatchUploadZone'
 import { computeOutputDimensions } from '@/utils/imageUtils'
 
-type ViewState = 'empty' | 'cropping' | 'preview' | 'done'
+type ViewState = 'empty' | 'cropping' | 'preview' | 'done' | 'batch'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +28,7 @@ export function Home() {
   const { t } = useLocale()
   const { runUpscale } = useUpscaler()
   const reset = useAppStore((s) => s.reset)
+  const clearBatch = useBatchStore((s) => s.clearAll)
 
   const originalFile = useAppStore((s) => s.originalFile)
   const originalDataUrl = useAppStore((s) => s.originalDataUrl)
@@ -35,50 +39,42 @@ export function Home() {
   const resultBlob = useAppStore((s) => s.resultBlob)
   const scale = useAppStore((s) => s.scaleFactor)
 
-  // 'cropping' is the default once an image is loaded — users coming for
-  // reframing land in the right place by default. They can Skip to go
-  // straight to preview, which keeps the full image.
   const [stage, setStage] = useState<'cropping' | 'preview'>('cropping')
+  const [batchActive, setBatchActive] = useState(false)
 
-  // Reset the local stage whenever the source image changes (new upload).
+  // Reset local stage when a new image is loaded
   useEffect(() => {
     if (originalFile) {
       setStage('cropping')
+      setBatchActive(false)
     }
   }, [originalFile])
 
   const view: ViewState = useMemo(() => {
+    if (batchActive) return 'batch'
     if (resultBlob) return 'done'
     if (!originalFile) return 'empty'
     return stage
-  }, [resultBlob, originalFile, stage])
+  }, [batchActive, resultBlob, originalFile, stage])
 
-  // Cropped preview URL (only used in the preview stage when a crop is set).
+  // Cropped preview URL
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   useEffect(() => {
-    if (!croppedBlob) {
-      setPreviewUrl(null)
-      return
-    }
+    if (!croppedBlob) { setPreviewUrl(null); return }
     const url = URL.createObjectURL(croppedBlob)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [croppedBlob])
 
-  // Result preview URL.
+  // Result preview URL
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   useEffect(() => {
-    if (!resultBlob) {
-      setResultUrl(null)
-      return
-    }
+    if (!resultBlob) { setResultUrl(null); return }
     const url = URL.createObjectURL(resultBlob)
     setResultUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [resultBlob])
 
-  // Input dimensions for stats — prefer the cropped size when a crop exists,
-  // otherwise the full original.
   const inputDims = useMemo(
     () => croppedDimensions ?? originalDimensions,
     [croppedDimensions, originalDimensions],
@@ -89,10 +85,16 @@ export function Home() {
     [inputDims, scale],
   )
 
+  function handleClearBatch() {
+    clearBatch()
+    setBatchActive(false)
+  }
+
   return (
     <div className="relative">
       <ProcessingOverlay />
 
+      {/* ── EMPTY / LANDING ── */}
       {view === 'empty' && (
         <section className="relative min-h-[calc(100svh-68px-160px)] overflow-hidden px-6 py-16 md:px-10 md:py-24">
           <div className="hero-grid" />
@@ -114,7 +116,7 @@ export function Home() {
             </p>
 
             <div className="fade-up fade-up-d3 mt-12">
-              <UploadZone />
+              <UploadZone onBatchMode={() => setBatchActive(true)} />
             </div>
 
             <div className="fade-up fade-up-d3 mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-wider text-muted">
@@ -126,6 +128,31 @@ export function Home() {
         </section>
       )}
 
+      {/* ── BATCH MODE ── */}
+      {view === 'batch' && (
+        <section className="px-6 py-16 md:px-10">
+          <div className="mx-auto flex max-w-2xl flex-col items-center gap-8">
+            <SectionLabel>{t('batch.label')}</SectionLabel>
+
+            {useBatchStore.getState().items.length === 0 ? (
+              // No files yet — show batch upload zone
+              <>
+                <BatchUploadZone onFilesAdded={() => {}} />
+                <button
+                  onClick={handleClearBatch}
+                  className="font-mono text-[10px] uppercase tracking-wider text-muted hover:text-text"
+                >
+                  ← {t('batch.backToSingle')}
+                </button>
+              </>
+            ) : (
+              <BatchQueue onClearAll={handleClearBatch} />
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── CROP ── */}
       {view === 'cropping' && originalDataUrl && originalDimensions && (
         <section className="px-6 py-16 md:px-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
@@ -141,6 +168,7 @@ export function Home() {
         </section>
       )}
 
+      {/* ── PREVIEW ── */}
       {view === 'preview' && originalDataUrl && originalDimensions && (
         <section className="px-6 py-16 md:px-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
@@ -186,6 +214,7 @@ export function Home() {
         </section>
       )}
 
+      {/* ── DONE ── */}
       {view === 'done' && resultUrl && resultDimensions && inputDims && (
         <section className="px-6 py-16 md:px-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">

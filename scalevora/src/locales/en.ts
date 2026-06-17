@@ -12,6 +12,10 @@ export const en = {
   'home.trust.noSignup': 'No signup',
   'home.trust.offline': 'Works offline',
 
+  // Upload mode toggle
+  'upload.single': 'Single',
+  'upload.batch': 'Batch',
+
   // Crop
   'crop.label': 'Crop · Pick scale',
   'crop.skip': 'Skip crop',
@@ -29,6 +33,23 @@ export const en = {
   'done.before': 'Before',
   'done.after': 'After',
   'done.processNew': 'Process new',
+
+  // Batch
+  'batch.label': 'Batch Upscale',
+  'batch.start': 'Start Batch ↑',
+  'batch.cancel': 'Cancel',
+  'batch.clear': 'Clear all',
+  'batch.autoDownload': 'Auto-download',
+  'batch.backToSingle': 'Back to single',
+  'batch.files': 'files',
+  'batch.done': 'done',
+  'batch.errors': 'errors',
+  'batch.queued': 'queued',
+  'batch.allDone': 'All done',
+  'batch.processed': 'processed',
+  'batch.upload.cta': 'Drag & drop or click to add images',
+  'batch.upload.multi': 'Multiple files',
+  'batch.upload.filesLoaded': 'files loaded',
 
   // Footer
   'footer.tos': 'Terms',

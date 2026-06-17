@@ -58,6 +58,27 @@ export async function disposeModelCache() {
   useAppStore.getState().setModelStatus('idle')
 }
 
+/**
+ * Batch-mode model loader — does NOT touch appStore (no model status badge).
+ * Each batch item calls this fresh, so the model is re-loaded each time.
+ * That's intentional: we dispose between items to prevent OOM.
+ */
+export async function loadModelForBatch(scale: ScaleFactor): Promise<UpscalerInstance> {
+  return loadModelForScale(scale)
+}
+
+/** Dispose all cached instances after a batch item — frees GPU memory. */
+export async function disposeBatchModel() {
+  for (const instance of upscalerCache.values()) {
+    try {
+      if (instance.dispose) await instance.dispose()
+    } catch (e) {
+      console.error('[batch] Failed to dispose upscaler', e)
+    }
+  }
+  upscalerCache.clear()
+}
+
 export function useModelLoader() {
   const setModelStatus = useAppStore((s) => s.setModelStatus)
   const setModelProgress = useAppStore((s) => s.setModelProgress)

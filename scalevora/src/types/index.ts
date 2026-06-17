@@ -15,3 +15,18 @@ export interface Dimensions {
   width: number
   height: number
 }
+
+// Batch types
+export type BatchItemStatus = 'queued' | 'processing' | 'done' | 'error' | 'saved'
+
+export interface BatchItem {
+  id: string
+  file: File
+  format: ImageFormat
+  status: BatchItemStatus
+  progress: number        // 0–100
+  dimensions: Dimensions | null
+  resultBlob: Blob | null // null after auto-download to free memory
+  resultDimensions: Dimensions | null
+  error: string | null
+}

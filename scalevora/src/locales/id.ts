@@ -12,6 +12,9 @@ export const id: Record<TranslationKey, string> = {
   'home.trust.noSignup': 'Tanpa signup',
   'home.trust.offline': 'Bisa offline',
 
+  'upload.single': 'Single',
+  'upload.batch': 'Batch',
+
   'crop.label': 'Crop · Pilih skala',
   'crop.skip': 'Lewati crop',
   'crop.apply': 'Pakai crop ↑',
@@ -26,6 +29,22 @@ export const id: Record<TranslationKey, string> = {
   'done.before': 'Sebelum',
   'done.after': 'Sesudah',
   'done.processNew': 'Proses gambar baru',
+
+  'batch.label': 'Batch Upscale',
+  'batch.start': 'Mulai Batch ↑',
+  'batch.cancel': 'Batalkan',
+  'batch.clear': 'Hapus semua',
+  'batch.autoDownload': 'Auto-unduh',
+  'batch.backToSingle': 'Kembali ke single',
+  'batch.files': 'file',
+  'batch.done': 'selesai',
+  'batch.errors': 'gagal',
+  'batch.queued': 'antri',
+  'batch.allDone': 'Semua selesai',
+  'batch.processed': 'diproses',
+  'batch.upload.cta': 'Drag & drop atau klik untuk tambah gambar',
+  'batch.upload.multi': 'Multi-file',
+  'batch.upload.filesLoaded': 'file dimuat',
 
   'footer.tos': 'Syarat',
   'footer.privacy': 'Privasi',
