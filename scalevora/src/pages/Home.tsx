@@ -29,6 +29,7 @@ export function Home() {
   const { runUpscale } = useUpscaler()
   const reset = useAppStore((s) => s.reset)
   const clearBatch = useBatchStore((s) => s.clearAll)
+  const batchItemCount = useBatchStore((s) => s.items.length)
 
   const originalFile = useAppStore((s) => s.originalFile)
   const originalDataUrl = useAppStore((s) => s.originalDataUrl)
@@ -134,7 +135,7 @@ export function Home() {
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-8">
             <SectionLabel>{t('batch.label')}</SectionLabel>
 
-            {useBatchStore.getState().items.length === 0 ? (
+            {batchItemCount === 0 ? (
               // No files yet — show batch upload zone
               <>
                 <BatchUploadZone onFilesAdded={() => {}} />
