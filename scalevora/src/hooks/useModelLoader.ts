@@ -1,6 +1,6 @@
 import { useAppStore } from '@/store/appStore'
 import { detectBackend } from '@/utils/compatUtils'
-import type { ScaleFactor } from '@/types'
+import type { ScaleFactor, ArtStyle } from '@/types'
 
 // Module-scope cache so a second upload doesn't re-instantiate the upscaler
 // (cheap in dev, but tfjs eats memory if you keep re-creating).
@@ -17,27 +17,39 @@ type UpscalerInstance = {
   dispose: () => Promise<void>
 }
 
-const upscalerCache = new Map<ScaleFactor, UpscalerInstance>()
+const upscalerCache = new Map<string, UpscalerInstance>()
 
-async function loadModelForScale(scale: ScaleFactor): Promise<UpscalerInstance> {
-  const cached = upscalerCache.get(scale)
+async function loadModelForScale(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
+  const cacheKey = `${scale}-${style}`
+  const cached = upscalerCache.get(cacheKey)
   if (cached) return cached
 
-  const [{ default: Upscaler }, modelMod] = await Promise.all([
-    import('upscaler'),
-    scale === 2
-      ? import('@upscalerjs/esrgan-slim/2x')
-      : import('@upscalerjs/esrgan-slim/4x'),
-  ])
+  const { default: Upscaler } = await import('upscaler')
 
-  // model export shape: default
-  const model = (modelMod as { default: unknown }).default
+  let instance: UpscalerInstance
+  if (style === 'anime') {
+    // Custom Real-CUGAN model hosted locally
+    instance = new (Upscaler as unknown as new (
+      opts: { model: unknown },
+    ) => UpscalerInstance)({
+      model: {
+        path: `/models/anime/${scale}x/model.json`,
+        scale: scale,
+        modelType: 'graph',
+      },
+    })
+  } else {
+    // Default ESRGAN-Slim for photos
+    const modelMod = scale === 2
+      ? await import('@upscalerjs/esrgan-slim/2x')
+      : await import('@upscalerjs/esrgan-slim/4x')
+    const model = (modelMod as { default: unknown }).default
+    instance = new (Upscaler as unknown as new (
+      opts: { model: unknown },
+    ) => UpscalerInstance)({ model })
+  }
 
-  const instance = new (Upscaler as unknown as new (
-    opts: { model: unknown },
-  ) => UpscalerInstance)({ model })
-
-  upscalerCache.set(scale, instance)
+  upscalerCache.set(cacheKey, instance)
   return instance
 }
 
@@ -63,8 +75,8 @@ export async function disposeModelCache() {
  * Each batch item calls this fresh, so the model is re-loaded each time.
  * That's intentional: we dispose between items to prevent OOM.
  */
-export async function loadModelForBatch(scale: ScaleFactor): Promise<UpscalerInstance> {
-  return loadModelForScale(scale)
+export async function loadModelForBatch(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
+  return loadModelForScale(scale, style)
 }
 
 /** Dispose all cached instances after a batch item — frees GPU memory. */
@@ -86,24 +98,21 @@ export function useModelLoader() {
   const modelStatus = useAppStore((s) => s.modelStatus)
   const backend = useAppStore((s) => s.backend)
 
-  async function ensureModelReady(scale: ScaleFactor): Promise<UpscalerInstance> {
+  async function ensureModelReady(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
     if (!backend) {
       setBackend(await detectBackend())
     }
 
-    if (upscalerCache.has(scale) && modelStatus === 'ready') {
-      return upscalerCache.get(scale)!
+    const cacheKey = `${scale}-${style}`
+    if (upscalerCache.has(cacheKey) && modelStatus === 'ready') {
+      return upscalerCache.get(cacheKey)!
     }
 
     setModelStatus('loading')
     setModelProgress(0)
 
     try {
-      // Coarse progress: dynamic import resolved = 100%. There's no granular
-      // download progress event from the bundler — finer progress would
-      // require manually fetching the JSON weight file and tracking response
-      // body chunks. Not worth the complexity at this stage.
-      const instance = await loadModelForScale(scale)
+      const instance = await loadModelForScale(scale, style)
       setModelProgress(100)
       setModelStatus('ready')
       return instance

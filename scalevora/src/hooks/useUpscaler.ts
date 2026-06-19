@@ -44,7 +44,7 @@ export function useUpscaler() {
 
   async function runUpscale(): Promise<void> {
     const state = useAppStore.getState()
-    const { originalFile, originalFormat, croppedBlob, scaleFactor } = state
+    const { originalFile, originalFormat, croppedBlob, scaleFactor, artStyle } = state
 
     if (!originalFile || !originalFormat) {
       throw new Error('No image to upscale.')
@@ -59,7 +59,7 @@ export function useUpscaler() {
     setAbortController(abortController)
 
     try {
-      const upscaler = await ensureModelReady(scaleFactor)
+      const upscaler = await ensureModelReady(scaleFactor, artStyle)
 
       // Normalize EXIF orientation before handing to upscaler. We pass an
       // HTMLImageElement because that's what UpscalerJS expects in the browser.

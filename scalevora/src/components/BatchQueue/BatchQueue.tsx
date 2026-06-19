@@ -2,6 +2,7 @@ import { useBatchStore, triggerDownload, buildBatchFilename, BATCH_MAX_FILES } f
 import { useBatchUpscaler } from '@/hooks/useBatchUpscaler'
 import { useLocale } from '@/hooks/useLocale'
 import { BatchUploadZone } from '@/components/BatchUploadZone/BatchUploadZone'
+import { StyleSelector } from '@/components/StyleSelector/StyleSelector'
 import type { BatchItem } from '@/types'
 
 function StatusBadge({ status, progress }: { status: BatchItem['status']; progress: number }) {
@@ -123,7 +124,7 @@ interface Props {
 
 export function BatchQueue({ onClearAll }: Props) {
   const { t } = useLocale()
-  const { items, scaleFactor, isRunning, autoDownload, setScale, setAutoDownload } = useBatchStore()
+  const { items, scaleFactor, artStyle, isRunning, autoDownload, setScale, setArtStyle, setAutoDownload } = useBatchStore()
   const { startBatch, cancelBatch } = useBatchUpscaler()
 
   const queuedCount = items.filter((i) => i.status === 'queued').length
@@ -152,6 +153,11 @@ export function BatchQueue({ onClearAll }: Props) {
               {s}×
             </button>
           ))}
+        </div>
+
+        {/* Style selector */}
+        <div className="flex items-center gap-2">
+          <StyleSelector value={artStyle} onChange={(v) => !isRunning && setArtStyle(v)} disabled={isRunning} />
         </div>
 
         {/* Auto-download toggle */}

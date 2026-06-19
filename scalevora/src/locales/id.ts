@@ -15,6 +15,9 @@ export const id: Record<TranslationKey, string> = {
   'upload.single': 'Single',
   'upload.batch': 'Batch',
 
+  'style.photo': 'Foto',
+  'style.anime': 'Animasi',
+
   'crop.label': 'Crop · Pilih skala',
   'crop.skip': 'Lewati crop',
   'crop.apply': 'Pakai crop ↑',

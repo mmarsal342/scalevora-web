@@ -8,6 +8,7 @@ import type {
   ScaleFactor,
   Locale,
   Dimensions,
+  ArtStyle,
 } from '@/types'
 
 interface AppState {
@@ -36,6 +37,7 @@ interface AppState {
 
   // Settings
   scaleFactor: ScaleFactor
+  artStyle: ArtStyle
   locale: Locale
 }
 
@@ -59,6 +61,7 @@ interface AppActions {
   setAbortController: (controller: AbortController | null) => void
 
   setScaleFactor: (scale: ScaleFactor) => void
+  setArtStyle: (style: ArtStyle) => void
   setLocale: (locale: Locale) => void
 
   reset: () => void
@@ -81,6 +84,7 @@ const initialState: AppState = {
   resultDimensions: null,
   abortController: null,
   scaleFactor: 2,
+  artStyle: 'photo',
   locale: 'en',
 }
 
@@ -109,6 +113,7 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
   setAbortController: (abortController) => set({ abortController }),
 
   setScaleFactor: (scaleFactor) => set({ scaleFactor }),
+  setArtStyle: (artStyle) => set({ artStyle }),
   setLocale: (locale) => set({ locale }),
 
   reset: () =>
@@ -120,6 +125,7 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
       backend: state.backend,
       compatLevel: state.compatLevel,
       scaleFactor: state.scaleFactor,
+      artStyle: state.artStyle,
       locale: state.locale,
     })),
 }))

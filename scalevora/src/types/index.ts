@@ -9,6 +9,8 @@ export type Backend = 'webgpu' | 'webgl' | 'wasm' | null
 export type CompatLevel = 'full' | 'limited' | 'unsupported'
 export type ImageFormat = 'jpg' | 'png' | 'heic'
 export type ScaleFactor = 2 | 4
+export type UpscalerMode = 'single' | 'batch'
+export type ArtStyle = 'photo' | 'anime'
 export type Locale = 'en' | 'id'
 
 export interface Dimensions {

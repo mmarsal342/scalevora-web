@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { BatchItem, ImageFormat, ScaleFactor } from '@/types'
+import type { BatchItem, ImageFormat, ScaleFactor, ArtStyle } from '@/types'
 
 export const BATCH_MAX_FILES = 50
 
@@ -9,6 +9,7 @@ interface BatchState {
   isRunning: boolean
   activeId: string | null
   autoDownload: boolean
+  artStyle: ArtStyle
 }
 
 interface BatchActions {
@@ -19,6 +20,7 @@ interface BatchActions {
   setActiveId: (id: string | null) => void
   setScale: (scale: ScaleFactor) => void
   setAutoDownload: (v: boolean) => void
+  setArtStyle: (style: ArtStyle) => void
   clearAll: () => void
 }
 
@@ -28,6 +30,7 @@ const initialState: BatchState = {
   isRunning: false,
   activeId: null,
   autoDownload: true,
+  artStyle: 'photo',
 }
 
 // Validate file type — returns format or null if unsupported
@@ -100,6 +103,7 @@ export const useBatchStore = create<BatchState & BatchActions>((set, get) => ({
   setActiveId: (activeId) => set({ activeId }),
   setScale: (scaleFactor) => set({ scaleFactor }),
   setAutoDownload: (autoDownload) => set({ autoDownload }),
+  setArtStyle: (artStyle) => set({ artStyle }),
   clearAll: () => set({ ...initialState }),
 }))
 

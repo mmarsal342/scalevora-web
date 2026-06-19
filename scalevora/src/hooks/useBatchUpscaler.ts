@@ -23,6 +23,7 @@ export function useBatchUpscaler() {
   const abortRef = useRef<AbortController | null>(null)
   const {
     scaleFactor,
+    artStyle,
     autoDownload,
     updateItem,
     setRunning,
@@ -57,7 +58,7 @@ export function useBatchUpscaler() {
       if (abortCtrl.signal.aborted) return
 
       // 3. Load model (fresh each time — dispose between items prevents OOM)
-      const upscaler = await loadModelForBatch(scaleFactor)
+      const upscaler = await loadModelForBatch(scaleFactor, artStyle)
 
       if (abortCtrl.signal.aborted) return
 

@@ -16,6 +16,10 @@ export const en = {
   'upload.single': 'Single',
   'upload.batch': 'Batch',
 
+  // Style selector
+  'style.photo': 'Photo',
+  'style.anime': 'Anime',
+
   // Crop
   'crop.label': 'Crop · Pick scale',
   'crop.skip': 'Skip crop',

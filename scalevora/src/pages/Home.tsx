@@ -6,6 +6,7 @@ import { useUpscaler } from '@/hooks/useUpscaler'
 import { UploadZone } from '@/components/UploadZone/UploadZone'
 import { ScaleSelector } from '@/components/ScaleSelector/ScaleSelector'
 import { ProcessingOverlay } from '@/components/ProcessingOverlay/ProcessingOverlay'
+import { StyleSelector } from '@/components/StyleSelector/StyleSelector'
 import { SaveButton } from '@/components/SaveButton/SaveButton'
 import { CropTool } from '@/components/CropTool/CropTool'
 import { BeforeAfterSlider } from '@/components/BeforeAfterSlider/BeforeAfterSlider'
@@ -34,6 +35,9 @@ export function Home() {
   const originalFile = useAppStore((s) => s.originalFile)
   const originalDataUrl = useAppStore((s) => s.originalDataUrl)
   const originalDimensions = useAppStore((s) => s.originalDimensions)
+
+  const artStyle = useAppStore((s) => s.artStyle)
+  const setArtStyle = useAppStore((s) => s.setArtStyle)
   const croppedBlob = useAppStore((s) => s.croppedBlob)
   const croppedDimensions = useAppStore((s) => s.croppedDimensions)
   const resultDimensions = useAppStore((s) => s.resultDimensions)
@@ -158,8 +162,9 @@ export function Home() {
         <section className="px-6 py-16 md:px-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
             <SectionLabel>{t('crop.label')}</SectionLabel>
-            <div className="flex items-center">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <ScaleSelector />
+              <StyleSelector value={artStyle} onChange={setArtStyle} />
             </div>
             <CropTool
               onSkip={() => setStage('preview')}
@@ -183,6 +188,7 @@ export function Home() {
 
             <div className="flex flex-wrap items-center justify-center gap-3">
               <ScaleSelector />
+              <StyleSelector value={artStyle} onChange={setArtStyle} />
               <button
                 onClick={() => void runUpscale()}
                 className="bg-accent px-8 py-3 font-display text-sm font-bold tracking-wide text-bg transition-transform hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(232,255,71,0.25)]"
