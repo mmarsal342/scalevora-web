@@ -4,6 +4,35 @@ export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
 export const MAX_DIMENSION_DESKTOP = 2048
 export const MAX_DIMENSION_MOBILE = 1536
 
+// Maximum pixel dimension for the OUTPUT image.
+// Exceeding this causes TF.js to overflow its internal tensor-tracking Set
+// ("RangeError: Set maximum size exceeded") or exceed WebGL max texture size.
+// At 4x: max INPUT = 1024px per side → output 4096px
+// At 2x: max INPUT = 2048px per side → output 4096px
+export const MAX_OUTPUT_SIDE = 4096
+
+/**
+ * Returns an error string if the upscaled output would be too large to process,
+ * or null if dimensions are safe.
+ */
+export function checkOutputSize(
+  input: Dimensions,
+  scale: ScaleFactor,
+): string | null {
+  const outW = input.width * scale
+  const outH = input.height * scale
+  if (outW > MAX_OUTPUT_SIDE || outH > MAX_OUTPUT_SIDE) {
+    const maxInputSide = Math.floor(MAX_OUTPUT_SIDE / scale)
+    return (
+      `Image too large for ${scale}x upscale ` +
+      `(output would be ${outW}×${outH}px). ` +
+      `Max input size for ${scale}x is ${maxInputSide}×${maxInputSide}px. ` +
+      `Try 2x scale instead.`
+    )
+  }
+  return null
+}
+
 export function detectFormat(file: File): ImageFormat | null {
   const name = file.name.toLowerCase()
   const type = file.type.toLowerCase()

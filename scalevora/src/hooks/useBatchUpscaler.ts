@@ -3,7 +3,7 @@ import { useBatchStore, triggerDownload, buildBatchFilename } from '@/store/batc
 import { loadModelForBatch, disposeBatchModel } from '@/hooks/useModelLoader'
 import { normalizedImageBitmap } from '@/utils/exifUtils'
 import { convertHeicToPng } from '@/utils/heicUtils'
-import { getDimensions, computeOutputDimensions } from '@/utils/imageUtils'
+import { getDimensions, computeOutputDimensions, checkOutputSize } from '@/utils/imageUtils'
 import type { BatchItem } from '@/types'
 
 const PATCH_SIZE = 128
@@ -47,6 +47,13 @@ export function useBatchUpscaler() {
       const bitmap = await normalizedImageBitmap(decodableBlob)
       const dimensions = getDimensions(bitmap)
       updateItem(item.id, { dimensions })
+
+      // Bail out early if the output would exceed GPU/tensor size limits
+      const sizeError = checkOutputSize(dimensions, useBatchStore.getState().scaleFactor)
+      if (sizeError) {
+        bitmap.close()
+        throw new Error(sizeError)
+      }
 
       // Draw to canvas (UpscalerJS expects HTMLCanvasElement)
       const canvas = document.createElement('canvas')
