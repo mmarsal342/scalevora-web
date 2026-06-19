@@ -1,5 +1,5 @@
 import { useAppStore } from '@/store/appStore'
-import { detectBackend } from '@/utils/compatUtils'
+import { detectBackend, applyBackend } from '@/utils/compatUtils'
 import type { ScaleFactor, ArtStyle } from '@/types'
 
 // Module-scope cache so a second upload doesn't re-instantiate the upscaler
@@ -138,7 +138,10 @@ export function useModelLoader() {
 
   async function ensureModelReady(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
     if (!backend) {
-      setBackend(await detectBackend())
+      const detected = await detectBackend()
+      setBackend(detected)
+      // Tell TF.js to actually use this backend before we instantiate any model
+      await applyBackend(detected)
     }
 
     const cacheKey = `${scale}-${style}`

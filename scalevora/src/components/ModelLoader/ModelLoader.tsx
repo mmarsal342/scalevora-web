@@ -1,5 +1,5 @@
 import { useAppStore } from '@/store/appStore'
-import { backendLabel } from '@/utils/compatUtils'
+import { backendLabel, isCpuMode } from '@/utils/compatUtils'
 
 export function ModelLoader() {
   const status = useAppStore((s) => s.modelStatus)
@@ -24,9 +24,18 @@ export function ModelLoader() {
   }
 
   if (status === 'ready') {
+    const cpuMode = isCpuMode(backend)
     return (
-      <span className="font-mono text-xs text-muted">
+      <span
+        className={`font-mono text-xs ${cpuMode ? 'text-yellow-400' : 'text-muted'}`}
+        title={
+          cpuMode
+            ? 'Your GPU does not support the required WebGL shaders. Running in CPU mode — upscaling will be slower but fully functional.'
+            : undefined
+        }
+      >
         {backendLabel(backend)}
+        {cpuMode && ' ⚠'}
       </span>
     )
   }
