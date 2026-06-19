@@ -24,20 +24,58 @@ async function loadModelForScale(scale: ScaleFactor, style: ArtStyle): Promise<U
   const cached = upscalerCache.get(cacheKey)
   if (cached) return cached
 
-  const { default: Upscaler } = await import('upscaler')
+  const [{ default: Upscaler }, tf] = await Promise.all([
+    import('upscaler'),
+    import('@tensorflow/tfjs'),
+  ])
 
   let instance: UpscalerInstance
   if (style === 'anime') {
-    // Custom Real-CUGAN model hosted locally
-    instance = new (Upscaler as unknown as new (
-      opts: { model: unknown },
-    ) => UpscalerInstance)({
-      model: {
-        path: `/models/anime/${scale}x/model.json`,
-        scale: scale,
-        modelType: 'graph',
-      },
-    })
+    // Custom Real-CUGAN graph model.
+    //
+    // FIX: Real-CUGAN expects FLOAT32 input in [0, 1] range.
+    // UpscalerJS passes raw INT32 pixels [0, 255] by default for graph models,
+    // causing "DTYPE MUST BE FLOAT32 BUT WAS INT32" errors.
+    // We provide explicit preprocess/postprocess to handle the conversion.
+    //
+    // If the GPU doesn't support the shader (e.g. old Intel/mobile GPUs that
+    // fail with "Failed to link vertex and fragment shaders"), we catch it and
+    // fall back to the ESRGAN-Slim photo model transparently.
+    try {
+      instance = new (Upscaler as unknown as new (
+        opts: { model: unknown },
+      ) => UpscalerInstance)({
+        model: {
+          path: `/models/anime/${scale}x/model.json`,
+          scale: scale,
+          modelType: 'graph',
+          // Normalize INT32 [0,255] → FLOAT32 [0,1]
+          preprocess: (t: ReturnType<typeof tf.tensor>) => {
+            const float = tf.cast(t, 'float32')
+            const normalized = tf.div(float, 255.0)
+            float.dispose()
+            return normalized as ReturnType<typeof tf.tensor>
+          },
+          // Scale FLOAT32 [0,1] → FLOAT32 [0,255] for UpscalerJS output
+          postprocess: (t: ReturnType<typeof tf.tensor>) => {
+            const clipped = tf.clipByValue(t, 0, 1)
+            const scaled = tf.mul(clipped, 255.0)
+            clipped.dispose()
+            return scaled as ReturnType<typeof tf.tensor>
+          },
+        },
+      })
+    } catch (e) {
+      // Shader compilation failed (unsupported GPU). Fall back to photo model.
+      console.warn('[ScaleVora] Anime model failed to load, falling back to photo model:', e)
+      const modelMod = scale === 2
+        ? await import('@upscalerjs/esrgan-slim/2x')
+        : await import('@upscalerjs/esrgan-slim/4x')
+      const model = (modelMod as { default: unknown }).default
+      instance = new (Upscaler as unknown as new (
+        opts: { model: unknown },
+      ) => UpscalerInstance)({ model })
+    }
   } else {
     // Default ESRGAN-Slim for photos
     const modelMod = scale === 2
