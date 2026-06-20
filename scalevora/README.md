@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# ScaleVora
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ScaleVora is a fast, offline-capable, browser-based AI image upscaler. It uses TensorFlow.js to upscale your images directly on your device's GPU, meaning **zero server costs**, **complete privacy** (your images never leave your browser), and **truly offline** functionality once the models are cached.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **100% Client-Side Processing**: Images are processed directly in your browser using WebGL or WebGPU.
+- **Multiple AI Models**:
+  - **📷 Photo (Fast)**: Uses `ESRGAN-Slim` (~879KB). Lightning-fast upscaling for standard photos.
+  - **📷 Photo (Quality)**: Uses `ESRGAN-Medium` (~2.7MB). Slower, but produces significantly sharper details for low-resolution photos.
+  - **🎨 Anime**: Uses `Real-CUGAN` (~3MB). Specialized model for illustrations, anime, vector graphics, and line art to keep edges crisp.
+- **Multi-pass 4× Upscaling**: When selecting 4× scale, the engine runs a 2× model twice recursively (multi-pass) to retain superior context and texture compared to a single-pass 4× model.
+- **Batch Processing**: Upscale up to 50 images at once in a queue. Models are dynamically loaded and disposed of between images to prevent GPU memory leaks.
+- **Hardware Benchmarking**: Displays the exact elapsed processing time for each image, giving you a real-time benchmark of your GPU's inference speed.
+- **Auto-Cropping for Large Images**: Automatically prompts you to crop images that exceed the maximum patch threshold, avoiding GPU Out-Of-Memory crashes.
+- **Sharpening Pass**: Applies a lightweight GPU-accelerated CSS unsharp mask before saving to pop the final details.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework**: React + TypeScript + Vite
+- **Styling**: Tailwind CSS (with custom design system & animations)
+- **State Management**: Zustand
+- **Machine Learning**: TensorFlow.js (`@tensorflow/tfjs`) + UpscalerJS (`upscaler`)
+- **Image Processing**: HTML5 Canvas API
+- **Deployment**: Vercel
 
-## Expanding the ESLint configuration
+## Running Locally
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Note on Offline Capabilities
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The first time you load the app, your browser will download the UI bundle and the necessary AI model weights (which range from 1MB to 3MB). These are aggressively cached by your browser. Subsequent visits will require **zero bandwidth**. You can disconnect from the internet and the application will continue to function fully.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## License
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+MIT
