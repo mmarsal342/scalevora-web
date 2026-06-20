@@ -89,11 +89,15 @@ export function useBatchUpscaler() {
 
       if (abortCtrl.signal.aborted) return
 
-      // 4a. First upscale pass (scope ensures per-patch tensors are freed)
+      // 4. Upscale — ONE engine scope covers all passes for this item.
+      //    Using separate scopes per pass caused "Tensor is disposed" errors
+      //    because graph models (Real-CUGAN) cache tensors internally between calls,
+      //    and the first endScope() would dispose those cached tensors before pass 2.
+      let resultBase64: string
       tf.engine().startScope()
-      let pass1Base64: string
       try {
-        pass1Base64 = await upscaler.execute(workingCanvas, {
+        // ── Pass 1 ────────────────────────────────────────────────────────
+        const pass1Base64 = await upscaler.execute(workingCanvas, {
           patchSize: PATCH_SIZE,
           padding: 2,
           awaitNextFrame: true,
@@ -101,26 +105,19 @@ export function useBatchUpscaler() {
           progress: (amount: number) => {
             updateItem(item.id, {
               progress: useMultiPass
-                ? Math.round(amount * 48)      // 0–48% for multi-pass pass 1
-                : Math.round(amount * 95),     // 0–95% for single-pass
+                ? Math.round(amount * 48)   // 0–48% for pass 1 of 4×
+                : Math.round(amount * 95),  // 0–95% for single-pass 2×
             })
           },
         })
-      } finally {
-        tf.engine().endScope()
-      }
 
-      if (abortCtrl.signal.aborted) return
+        if (abortCtrl.signal.aborted) return
 
-      let resultBase64: string
+        if (useMultiPass) {
+          // ── Pass 2 (4× multi-pass only) ──────────────────────────────
+          updateItem(item.id, { progress: 48 })
+          workingCanvas = await base64ToCanvas(pass1Base64)
 
-      if (useMultiPass) {
-        // 4b. Second pass for 4× multi-pass
-        updateItem(item.id, { progress: 48 })
-        workingCanvas = await base64ToCanvas(pass1Base64)
-
-        tf.engine().startScope()
-        try {
           resultBase64 = await upscaler.execute(workingCanvas, {
             patchSize: PATCH_SIZE,
             padding: 2,
@@ -130,11 +127,13 @@ export function useBatchUpscaler() {
               updateItem(item.id, { progress: 48 + Math.round(amount * 47) }) // 48–95%
             },
           })
-        } finally {
-          tf.engine().endScope()
+        } else {
+          resultBase64 = pass1Base64
         }
-      } else {
-        resultBase64 = pass1Base64
+      } finally {
+        // endScope cleans up ALL intermediate tensors from both passes at once.
+        // Model weights (Variables) are unaffected.
+        tf.engine().endScope()
       }
 
       if (abortCtrl.signal.aborted) return
