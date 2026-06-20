@@ -5,6 +5,7 @@ import { normalizedImageBitmap } from '@/utils/exifUtils'
 import { convertHeicToPng } from '@/utils/heicUtils'
 import { getDimensions, computeOutputDimensions, checkOutputSize } from '@/utils/imageUtils'
 import type { BatchItem } from '@/types'
+import * as tf from '@tensorflow/tfjs'
 
 const PATCH_SIZE = 128
 
@@ -69,16 +70,27 @@ export function useBatchUpscaler() {
 
       if (abortCtrl.signal.aborted) return
 
-      // 4. Upscale
-      const resultBase64 = await upscaler.execute(canvas, {
-        patchSize: PATCH_SIZE,
-        padding: 2,
-        awaitNextFrame: true,
-        signal: abortCtrl.signal,
-        progress: (amount: number) => {
-          updateItem(item.id, { progress: Math.round(amount * 100) })
-        },
-      })
+      // 4. Upscale — wrap in a TF.js engine scope so every intermediate
+      //    tensor created per-patch during inference is disposed automatically
+      //    when the scope exits. Without this, tensors accumulate across batch
+      //    items and eventually overflow the engine's internal tracking Set.
+      tf.engine().startScope()
+      let resultBase64: string
+      try {
+        resultBase64 = await upscaler.execute(canvas, {
+          patchSize: PATCH_SIZE,
+          padding: 2,
+          awaitNextFrame: true,
+          signal: abortCtrl.signal,
+          progress: (amount: number) => {
+            updateItem(item.id, { progress: Math.round(amount * 100) })
+          },
+        })
+      } finally {
+        // endScope disposes all tensors created within this scope
+        // (model weights are Variables and unaffected by scope cleanup)
+        tf.engine().endScope()
+      }
 
       if (abortCtrl.signal.aborted) return
 

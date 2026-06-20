@@ -1,5 +1,6 @@
 import { useAppStore } from '@/store/appStore'
 import { detectBackend, applyBackend } from '@/utils/compatUtils'
+import * as tf from '@tensorflow/tfjs'
 import type { ScaleFactor, ArtStyle } from '@/types'
 
 // Module-scope cache so a second upload doesn't re-instantiate the upscaler
@@ -127,6 +128,17 @@ export async function disposeBatchModel() {
     }
   }
   upscalerCache.clear()
+
+  // Clean up any TF.js variables still tracked (model weights, embeddings, etc.)
+  try {
+    tf.disposeVariables()
+  } catch (e) {
+    console.warn('[batch] disposeVariables failed:', e)
+  }
+
+  // Yield to the event loop so the browser can actually GC the released memory
+  // before the next batch item starts loading its model.
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 }
 
 export function useModelLoader() {
