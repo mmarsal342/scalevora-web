@@ -15,6 +15,10 @@ import type { Backend } from '@/types'
  */
 export async function detectBackend(): Promise<Backend> {
   // ── 1. WebGPU ──────────────────────────────────────────────────────────
+  // Note: WebGPU in TF.js 4.11.0 is extremely experimental and causes massive 
+  // slowdowns (30+ minutes) when running deep LayersModels like ESRGAN-Medium.
+  // We disable it here and prefer WebGL, which is highly optimized.
+  /*
   if ('gpu' in navigator && navigator.gpu) {
     try {
       const adapter = await navigator.gpu.requestAdapter()
@@ -23,6 +27,7 @@ export async function detectBackend(): Promise<Backend> {
       // fall through
     }
   }
+  */
 
   // ── 2. WebGL — with shader smoke-test ─────────────────────────────────
   const probe = document.createElement('canvas')
