@@ -7,9 +7,21 @@ Built by [VoraLab](https://voralab.id) (PT Modular Media Asia) as a free tool fo
 ## Stack
 
 - React 19 + Vite + TypeScript
-- UpscalerJS + ESRGAN-Slim (image upscaling, auto WebGPU → WebGL → WASM fallback)
+- UpscalerJS + TF.js (auto WebGPU → WebGL → WASM fallback)
+- AI Models included:
+  - `ESRGAN-Slim` (Fast Photo upscaling, ~879KB)
+  - `ESRGAN-Medium` (High-Quality Photo upscaling, ~2.7MB)
+  - `Real-CUGAN` (Anime/Illustration upscaling, ~3MB)
 - WebSR + Mediabunny (video upscaling, Phase 5)
 - Zustand, Tailwind CSS, React Router
+
+## Features
+
+- **100% Client-Side**: Truly offline after the first load. Zero server cost.
+- **Multi-pass 4× Upscaling**: Runs a 2× model twice recursively for significantly sharper details.
+- **Batch Processing**: Queue up to 50 images with automatic memory disposal to prevent OOM.
+- **Hardware Benchmarking**: See exact elapsed processing time per image to gauge your GPU speed.
+- **Smart Cropping**: Auto-prompts cropping for ultra-large inputs.
 
 ## Status
 
