@@ -11,6 +11,7 @@ export type ImageFormat = 'jpg' | 'png' | 'heic'
 export type ScaleFactor = 2 | 4
 export type UpscalerMode = 'single' | 'batch'
 export type ArtStyle = 'photo' | 'anime'
+export type PhotoQuality = 'fast' | 'quality'
 export type Locale = 'en' | 'id'
 
 export interface Dimensions {
@@ -31,4 +32,5 @@ export interface BatchItem {
   resultBlob: Blob | null // null after auto-download to free memory
   resultDimensions: Dimensions | null
   error: string | null
+  elapsedMs: number | null   // actual processing time in ms, null until done
 }

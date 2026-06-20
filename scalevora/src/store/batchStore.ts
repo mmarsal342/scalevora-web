@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { BatchItem, ImageFormat, ScaleFactor, ArtStyle } from '@/types'
+import type { BatchItem, ImageFormat, ScaleFactor, ArtStyle, PhotoQuality } from '@/types'
 
 export const BATCH_MAX_FILES = 50
 
@@ -10,6 +10,7 @@ interface BatchState {
   activeId: string | null
   autoDownload: boolean
   artStyle: ArtStyle
+  photoQuality: PhotoQuality
 }
 
 interface BatchActions {
@@ -21,6 +22,7 @@ interface BatchActions {
   setScale: (scale: ScaleFactor) => void
   setAutoDownload: (v: boolean) => void
   setArtStyle: (style: ArtStyle) => void
+  setPhotoQuality: (quality: PhotoQuality) => void
   clearAll: () => void
 }
 
@@ -31,6 +33,7 @@ const initialState: BatchState = {
   activeId: null,
   autoDownload: true,
   artStyle: 'photo',
+  photoQuality: 'fast',
 }
 
 // Validate file type — returns format or null if unsupported
@@ -81,6 +84,7 @@ export const useBatchStore = create<BatchState & BatchActions>((set, get) => ({
         resultBlob: null,
         resultDimensions: null,
         error: null,
+        elapsedMs: null,
       })
       added++
     }
@@ -104,7 +108,8 @@ export const useBatchStore = create<BatchState & BatchActions>((set, get) => ({
   setScale: (scaleFactor) => set({ scaleFactor }),
   setAutoDownload: (autoDownload) => set({ autoDownload }),
   setArtStyle: (artStyle) => set({ artStyle }),
-  clearAll: () => set({ ...initialState }),
+  setPhotoQuality: (photoQuality) => set({ photoQuality }),
+  clearAll: () => set({ items: [], isRunning: false, activeId: null }),
 }))
 
 // Helper selectors

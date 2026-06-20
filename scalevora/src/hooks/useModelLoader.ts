@@ -1,7 +1,7 @@
 import { useAppStore } from '@/store/appStore'
 import { detectBackend, applyBackend } from '@/utils/compatUtils'
 import * as tf from '@tensorflow/tfjs'
-import type { ScaleFactor, ArtStyle } from '@/types'
+import type { ScaleFactor, ArtStyle, PhotoQuality } from '@/types'
 
 // Module-scope cache so a second upload doesn't re-instantiate the upscaler
 // (cheap in dev, but tfjs eats memory if you keep re-creating).
@@ -20,8 +20,12 @@ type UpscalerInstance = {
 
 const upscalerCache = new Map<string, UpscalerInstance>()
 
-async function loadModelForScale(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
-  const cacheKey = `${scale}-${style}`
+async function loadModelForScale(
+  scale: ScaleFactor,
+  style: ArtStyle,
+  quality: PhotoQuality,
+): Promise<UpscalerInstance> {
+  const cacheKey = `${scale}-${style}-${quality}`
   const cached = upscalerCache.get(cacheKey)
   if (cached) return cached
 
@@ -77,8 +81,17 @@ async function loadModelForScale(scale: ScaleFactor, style: ArtStyle): Promise<U
         opts: { model: unknown },
       ) => UpscalerInstance)({ model })
     }
+  } else if (quality === 'quality') {
+    // ESRGAN-Medium for high quality photos
+    const modelMod = scale === 2
+      ? await import('@upscalerjs/esrgan-medium/2x')
+      : await import('@upscalerjs/esrgan-medium/4x')
+    const model = (modelMod as { default: unknown }).default
+    instance = new (Upscaler as unknown as new (
+      opts: { model: unknown },
+    ) => UpscalerInstance)({ model })
   } else {
-    // Default ESRGAN-Slim for photos
+    // Default ESRGAN-Slim for fast photos
     const modelMod = scale === 2
       ? await import('@upscalerjs/esrgan-slim/2x')
       : await import('@upscalerjs/esrgan-slim/4x')
@@ -114,8 +127,61 @@ export async function disposeModelCache() {
  * Each batch item calls this fresh, so the model is re-loaded each time.
  * That's intentional: we dispose between items to prevent OOM.
  */
-export async function loadModelForBatch(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
-  return loadModelForScale(scale, style)
+export async function loadModelForBatch(
+  scale: ScaleFactor,
+  style: ArtStyle,
+  quality: PhotoQuality,
+): Promise<UpscalerInstance> {
+  const backend = await detectBackend()
+  await applyBackend(backend)
+
+  // Use a completely un-cached instance for batch to avoid memory pollution
+  // We bypass loadModelForScale and create it directly.
+  const [{ default: Upscaler }] = await Promise.all([
+    import('upscaler'),
+  ])
+
+  let instance: UpscalerInstance
+  if (style === 'anime') {
+    instance = new (Upscaler as unknown as new (
+      opts: { model: unknown },
+    ) => UpscalerInstance)({
+      model: {
+        path: `/models/anime/${scale}x/model.json`,
+        scale: scale,
+        modelType: 'graph',
+        preprocess: (t: ReturnType<typeof tf.tensor>) => {
+          const float = tf.cast(t, 'float32')
+          const normalized = tf.div(float, 255.0)
+          float.dispose()
+          return normalized as ReturnType<typeof tf.tensor>
+        },
+        postprocess: (t: ReturnType<typeof tf.tensor>) => {
+          const clipped = tf.clipByValue(t, 0, 1)
+          const scaled = tf.mul(clipped, 255.0)
+          clipped.dispose()
+          return scaled as ReturnType<typeof tf.tensor>
+        },
+      },
+    })
+  } else if (quality === 'quality') {
+    const modelMod = scale === 2
+      ? await import('@upscalerjs/esrgan-medium/2x')
+      : await import('@upscalerjs/esrgan-medium/4x')
+    const model = (modelMod as { default: unknown }).default
+    instance = new (Upscaler as unknown as new (
+      opts: { model: unknown },
+    ) => UpscalerInstance)({ model })
+  } else {
+    const modelMod = scale === 2
+      ? await import('@upscalerjs/esrgan-slim/2x')
+      : await import('@upscalerjs/esrgan-slim/4x')
+    const model = (modelMod as { default: unknown }).default
+    instance = new (Upscaler as unknown as new (
+      opts: { model: unknown },
+    ) => UpscalerInstance)({ model })
+  }
+  return instance
 }
 
 /** Dispose all cached instances after a batch item — frees GPU memory. */
@@ -143,32 +209,28 @@ export async function disposeBatchModel() {
 
 export function useModelLoader() {
   const setModelStatus = useAppStore((s) => s.setModelStatus)
-  const setModelProgress = useAppStore((s) => s.setModelProgress)
-  const setBackend = useAppStore((s) => s.setBackend)
-  const modelStatus = useAppStore((s) => s.modelStatus)
-  const backend = useAppStore((s) => s.backend)
 
-  async function ensureModelReady(scale: ScaleFactor, style: ArtStyle): Promise<UpscalerInstance> {
-    if (!backend) {
-      const detected = await detectBackend()
-      setBackend(detected)
-      // Tell TF.js to actually use this backend before we instantiate any model
-      await applyBackend(detected)
+  async function ensureModelReady(
+    scale: ScaleFactor,
+    style: ArtStyle,
+    quality: PhotoQuality,
+  ): Promise<UpscalerInstance> {
+    if (useAppStore.getState().modelStatus !== 'ready') {
+      useAppStore.getState().setModelStatus('loading')
+      useAppStore.getState().setModelProgress(0)
     }
-
-    const cacheKey = `${scale}-${style}`
-    if (upscalerCache.has(cacheKey) && modelStatus === 'ready') {
-      return upscalerCache.get(cacheKey)!
-    }
-
-    setModelStatus('loading')
-    setModelProgress(0)
 
     try {
-      const instance = await loadModelForScale(scale, style)
-      setModelProgress(100)
-      setModelStatus('ready')
-      return instance
+      // Initialize backend if not done yet
+      if (!useAppStore.getState().backend) {
+        const detected = await detectBackend()
+        useAppStore.getState().setBackend(detected)
+        await applyBackend(detected)
+      }
+
+      const upscaler = await loadModelForScale(scale, style, quality)
+      useAppStore.getState().setModelStatus('ready')
+      return upscaler
     } catch (e) {
       setModelStatus('error')
       throw e

@@ -38,6 +38,9 @@ export function Home() {
 
   const artStyle = useAppStore((s) => s.artStyle)
   const setArtStyle = useAppStore((s) => s.setArtStyle)
+  const photoQuality = useAppStore((s) => s.photoQuality)
+  const setPhotoQuality = useAppStore((s) => s.setPhotoQuality)
+  const processingElapsed = useAppStore((s) => s.processingElapsed)
   const croppedBlob = useAppStore((s) => s.croppedBlob)
   const croppedDimensions = useAppStore((s) => s.croppedDimensions)
   const resultDimensions = useAppStore((s) => s.resultDimensions)
@@ -164,7 +167,12 @@ export function Home() {
             <SectionLabel>{t('crop.label')}</SectionLabel>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <ScaleSelector inputDims={inputDims} />
-              <StyleSelector value={artStyle} onChange={setArtStyle} />
+              <StyleSelector
+                value={artStyle}
+                onChange={setArtStyle}
+                photoQuality={photoQuality}
+                onQualityChange={setPhotoQuality}
+              />
             </div>
             <CropTool
               onSkip={() => setStage('preview')}
@@ -188,7 +196,12 @@ export function Home() {
 
             <div className="flex flex-wrap items-center justify-center gap-3">
               <ScaleSelector inputDims={inputDims} />
-              <StyleSelector value={artStyle} onChange={setArtStyle} />
+              <StyleSelector
+                value={artStyle}
+                onChange={setArtStyle}
+                photoQuality={photoQuality}
+                onQualityChange={setPhotoQuality}
+              />
               <button
                 onClick={() => void runUpscale()}
                 className="bg-accent px-8 py-3 font-display text-sm font-bold tracking-wide text-bg transition-transform hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(232,255,71,0.25)]"
@@ -239,6 +252,12 @@ export function Home() {
               </span>{' '}
               · {scale}×
             </p>
+
+            {processingElapsed !== null && (
+              <p className="font-mono text-xs text-muted">
+                ✓ Upscaled in {(processingElapsed / 1000).toFixed(1)}s
+              </p>
+            )}
 
             <div className="flex flex-wrap items-center justify-center gap-3">
               <SaveButton />

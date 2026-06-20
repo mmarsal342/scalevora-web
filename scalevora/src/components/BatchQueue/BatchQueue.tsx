@@ -86,7 +86,14 @@ function QueueRow({ item, scale, autoDownload }: { item: BatchItem; scale: numbe
             )}
           </p>
         )}
-        <StatusBadge status={item.status} progress={item.progress} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={item.status} progress={item.progress} />
+          {(item.status === 'done' || item.status === 'saved') && item.elapsedMs !== null && (
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
+              · {(item.elapsedMs / 1000).toFixed(1)}s
+            </span>
+          )}
+        </div>
         {item.error && (
           <p className="font-mono text-[10px] uppercase tracking-wider text-error">
             {item.error}
@@ -124,7 +131,18 @@ interface Props {
 
 export function BatchQueue({ onClearAll }: Props) {
   const { t } = useLocale()
-  const { items, scaleFactor, artStyle, isRunning, autoDownload, setScale, setArtStyle, setAutoDownload } = useBatchStore()
+  const {
+    items,
+    scaleFactor,
+    artStyle,
+    photoQuality,
+    isRunning,
+    autoDownload,
+    setScale,
+    setArtStyle,
+    setPhotoQuality,
+    setAutoDownload,
+  } = useBatchStore()
   const { startBatch, cancelBatch } = useBatchUpscaler()
 
   const queuedCount = items.filter((i) => i.status === 'queued').length
@@ -157,7 +175,13 @@ export function BatchQueue({ onClearAll }: Props) {
 
         {/* Style selector */}
         <div className="flex items-center gap-2">
-          <StyleSelector value={artStyle} onChange={(v) => !isRunning && setArtStyle(v)} disabled={isRunning} />
+          <StyleSelector
+            value={artStyle}
+            onChange={(v) => !isRunning && setArtStyle(v)}
+            photoQuality={photoQuality}
+            onQualityChange={(v) => !isRunning && setPhotoQuality(v)}
+            disabled={isRunning}
+          />
         </div>
 
         {/* Auto-download toggle */}

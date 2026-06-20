@@ -50,6 +50,7 @@ export function useBatchUpscaler() {
   const {
     scaleFactor,
     artStyle,
+    photoQuality,
     autoDownload,
     updateItem,
     setRunning,
@@ -60,7 +61,8 @@ export function useBatchUpscaler() {
     const abortCtrl = abortRef.current
     if (!abortCtrl || abortCtrl.signal.aborted) return
 
-    updateItem(item.id, { status: 'processing', progress: 0, error: null })
+    updateItem(item.id, { status: 'processing', progress: 0, error: null, elapsedMs: null })
+    const startedAt = performance.now()
 
     try {
       // 1. HEIC → PNG convert if needed
@@ -85,7 +87,7 @@ export function useBatchUpscaler() {
       // 3. Load 2× model — used for both single-pass (2×) and multi-pass (4×)
       const useMultiPass = scaleFactor === 4
       const modelScale = useMultiPass ? 2 : scaleFactor
-      const upscaler = await loadModelForBatch(modelScale, artStyle)
+      const upscaler = await loadModelForBatch(modelScale, artStyle, photoQuality)
 
       if (abortCtrl.signal.aborted) return
 
@@ -146,7 +148,8 @@ export function useBatchUpscaler() {
       const resultBlob = await canvasToBlob(outCanvas, mimeType, quality)
 
       const resultDimensions = computeOutputDimensions(dimensions, scaleFactor)
-      updateItem(item.id, { progress: 100, resultBlob, resultDimensions })
+      const elapsedMs = performance.now() - startedAt
+      updateItem(item.id, { progress: 100, resultBlob, resultDimensions, elapsedMs })
 
       // 6. Auto-download if enabled
       if (autoDownload) {

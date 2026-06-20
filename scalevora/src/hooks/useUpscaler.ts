@@ -46,13 +46,14 @@ export function useUpscaler() {
 
   const setProcessingStatus = useAppStore((s) => s.setProcessingStatus)
   const setProcessingProgress = useAppStore((s) => s.setProcessingProgress)
+  const setProcessingElapsed = useAppStore((s) => s.setProcessingElapsed)
   const setProcessingError = useAppStore((s) => s.setProcessingError)
   const setResult = useAppStore((s) => s.setResult)
   const setAbortController = useAppStore((s) => s.setAbortController)
 
   async function runUpscale(): Promise<void> {
     const state = useAppStore.getState()
-    const { originalFile, originalFormat, croppedBlob, scaleFactor, artStyle } = state
+    const { originalFile, originalFormat, croppedBlob, scaleFactor, artStyle, photoQuality } = state
 
     if (!originalFile || !originalFormat) {
       throw new Error('No image to upscale.')
@@ -63,6 +64,7 @@ export function useUpscaler() {
     setProcessingStatus('processing')
     setProcessingProgress(0)
     setProcessingError(null)
+    setProcessingElapsed(null)
 
     const abortController = new AbortController()
     setAbortController(abortController)
@@ -73,7 +75,9 @@ export function useUpscaler() {
       const useMultiPass = scaleFactor === 4
       const modelScale = useMultiPass ? 2 : scaleFactor
 
-      const upscaler = await ensureModelReady(modelScale, artStyle)
+      const upscaler = await ensureModelReady(modelScale, artStyle, photoQuality)
+
+      const startedAt = performance.now()
 
       // Normalize EXIF orientation
       const bitmap = await normalizedImageBitmap(sourceBlob)
@@ -112,6 +116,9 @@ export function useUpscaler() {
         const resultBlob = await canvasToBlob(resultCanvas, outputCfg.mimeType, outputCfg.quality)
         const outputDims = computeOutputDimensions(inputDims, scaleFactor)
         setProcessingProgress(100)
+        
+        const elapsed = performance.now() - startedAt
+        setProcessingElapsed(elapsed)
         setResult(resultBlob, outputDims)
         return
       }
@@ -139,6 +146,9 @@ export function useUpscaler() {
       const resultBlob = await canvasToBlob(resultCanvas, outputCfg.mimeType, outputCfg.quality)
       const outputDims = computeOutputDimensions(inputDims, scaleFactor)
       setProcessingProgress(100)
+      
+      const elapsed = performance.now() - startedAt
+      setProcessingElapsed(elapsed)
       setResult(resultBlob, outputDims)
 
     } catch (e) {

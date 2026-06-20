@@ -6,6 +6,7 @@ import type {
   CompatLevel,
   ImageFormat,
   ScaleFactor,
+  PhotoQuality,
   Locale,
   Dimensions,
   ArtStyle,
@@ -32,6 +33,7 @@ interface AppState {
   processingStatus: ProcessingStatus
   processingProgress: number
   processingError: string | null
+  processingElapsed: number | null   // ms, null until done
   resultBlob: Blob | null
   resultDimensions: Dimensions | null
   abortController: AbortController | null
@@ -39,6 +41,7 @@ interface AppState {
   // Settings
   scaleFactor: ScaleFactor
   artStyle: ArtStyle
+  photoQuality: PhotoQuality
   locale: Locale
 }
 
@@ -59,11 +62,13 @@ interface AppActions {
   setProcessingStatus: (status: ProcessingStatus) => void
   setProcessingError: (msg: string | null) => void
   setProcessingProgress: (progress: number) => void
+  setProcessingElapsed: (ms: number | null) => void
   setResult: (blob: Blob, dimensions: Dimensions) => void
   setAbortController: (controller: AbortController | null) => void
 
   setScaleFactor: (scale: ScaleFactor) => void
   setArtStyle: (style: ArtStyle) => void
+  setPhotoQuality: (quality: PhotoQuality) => void
   setLocale: (locale: Locale) => void
 
   reset: () => void
@@ -83,11 +88,13 @@ const initialState: AppState = {
   processingStatus: 'idle',
   processingProgress: 0,
   processingError: null,
+  processingElapsed: null,
   resultBlob: null,
   resultDimensions: null,
   abortController: null,
   scaleFactor: 2,
   artStyle: 'photo',
+  photoQuality: 'fast',
   locale: 'en',
 }
 
@@ -112,12 +119,14 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
         ? state
         : { processingProgress },
     ),
+  setProcessingElapsed: (processingElapsed) => set({ processingElapsed }),
   setResult: (resultBlob, resultDimensions) =>
     set({ resultBlob, resultDimensions, processingStatus: 'done' }),
   setAbortController: (abortController) => set({ abortController }),
 
   setScaleFactor: (scaleFactor) => set({ scaleFactor }),
   setArtStyle: (artStyle) => set({ artStyle }),
+  setPhotoQuality: (photoQuality) => set({ photoQuality }),
   setLocale: (locale) => set({ locale }),
 
   reset: () =>
@@ -130,6 +139,7 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
       compatLevel: state.compatLevel,
       scaleFactor: state.scaleFactor,
       artStyle: state.artStyle,
+      photoQuality: state.photoQuality,
       locale: state.locale,
     })),
 }))
