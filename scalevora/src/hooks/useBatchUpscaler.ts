@@ -64,6 +64,7 @@ export function useBatchUpscaler() {
     updateItem(item.id, { status: 'processing', progress: 0, error: null, elapsedMs: null })
     const startedAt = performance.now()
     let upscaler: any = null
+    let workingCanvas: HTMLCanvasElement | null = null
 
     try {
       // 1. HEIC → PNG convert if needed
@@ -77,7 +78,7 @@ export function useBatchUpscaler() {
       const dimensions = getDimensions(bitmap)
       updateItem(item.id, { dimensions })
 
-      let workingCanvas = document.createElement('canvas')
+      workingCanvas = document.createElement('canvas')
       workingCanvas.width = bitmap.width
       workingCanvas.height = bitmap.height
       workingCanvas.getContext('2d')!.drawImage(bitmap, 0, 0)
@@ -146,6 +147,10 @@ export function useBatchUpscaler() {
       const outCanvas = await base64ToCanvas(resultBase64)
       const resultBlob = await canvasToBlob(outCanvas, mimeType, quality)
 
+      // Immediately free the massive canvas memory
+      outCanvas.width = 0
+      outCanvas.height = 0
+
       const resultDimensions = computeOutputDimensions(dimensions, scaleFactor)
       const elapsedMs = performance.now() - startedAt
       updateItem(item.id, { progress: 100, resultBlob, resultDimensions, elapsedMs })
@@ -162,8 +167,19 @@ export function useBatchUpscaler() {
       if (abortCtrl.signal.aborted) return
       updateItem(item.id, { status: 'error', error: normalizeError(e) })
     } finally {
+      // Forcefully clear the working canvas to free its backing store memory immediately
+      if (typeof workingCanvas !== 'undefined' && workingCanvas) {
+        workingCanvas.width = 0
+        workingCanvas.height = 0
+        workingCanvas = null as any
+      }
+
       // ALWAYS dispose model + flush GPU memory before next item
       await disposeBatchModel(upscaler)
+
+      // Add a generous 3-second cooldown to let the OS GPU driver actually
+      // free the released VRAM before we slam it with the next massive image.
+      await new Promise(r => setTimeout(r, 3000))
     }
   }
 

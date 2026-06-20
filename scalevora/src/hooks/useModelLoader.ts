@@ -186,6 +186,7 @@ export async function loadModelForBatch(
 
 /** Dispose all cached instances or a specific batch instance — frees GPU memory. */
 export async function disposeBatchModel(instanceToDispose?: UpscalerInstance) {
+  console.log('[batch] Before dispose:', tf.memory())
   if (instanceToDispose?.dispose) {
     try {
       await instanceToDispose.dispose()
@@ -209,6 +210,8 @@ export async function disposeBatchModel(instanceToDispose?: UpscalerInstance) {
   } catch (e) {
     console.warn('[batch] disposeVariables failed:', e)
   }
+
+  console.log('[batch] After dispose:', tf.memory())
 
   // Yield to the event loop so the browser can actually GC the released memory
   // before the next batch item starts loading its model.
