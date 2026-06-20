@@ -6,7 +6,6 @@ import {
   getLongestSide,
   outputFormatFor,
   pickPatchSize,
-  checkOutputSize,
 } from '@/utils/imageUtils'
 
 async function base64ToBlob(
@@ -66,14 +65,6 @@ export function useUpscaler() {
       // HTMLImageElement because that's what UpscalerJS expects in the browser.
       const bitmap = await normalizedImageBitmap(sourceBlob)
       const inputDims = { width: bitmap.width, height: bitmap.height }
-
-      // Bail early if the output would exceed safe GPU/tensor limits
-      const sizeError = checkOutputSize(inputDims, scaleFactor)
-      if (sizeError) {
-        bitmap.close()
-        setProcessingStatus('error')
-        throw new Error(sizeError)
-      }
 
       const normalizedCanvas = document.createElement('canvas')
       normalizedCanvas.width = bitmap.width
