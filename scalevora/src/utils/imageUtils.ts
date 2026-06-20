@@ -71,8 +71,15 @@ export function computeOutputDimensions(
   return { width: input.width * scale, height: input.height * scale }
 }
 
-export function pickPatchSize(_longestSide: number): number {
-  return 128
+export function pickPatchSize(longestSide: number): number {
+  if (isMobileDevice()) {
+    // Mobile VRAM is limited
+    return longestSide <= 512 ? 256 : 128
+  }
+  // Desktop WebGL/WebGPU has plenty of VRAM.
+  // Using 128px on a 1024px image causes 81+ patches, starving the GPU with CPU overhead.
+  // 512px drops this to ~4 patches, massively speeding up inference.
+  return 512
 }
 
 /**

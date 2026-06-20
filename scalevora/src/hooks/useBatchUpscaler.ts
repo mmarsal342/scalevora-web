@@ -5,14 +5,14 @@ import { normalizedImageBitmap } from '@/utils/exifUtils'
 import { convertHeicToPng } from '@/utils/heicUtils'
 import {
   getDimensions,
+  getLongestSide,
   computeOutputDimensions,
+  pickPatchSize,
   applyUnsharpMask,
 } from '@/utils/imageUtils'
 import type { BatchItem } from '@/types'
 import * as tf from '@tensorflow/tfjs'
 import { normalizeError } from '@/utils/errorUtils'
-
-const PATCH_SIZE = 128
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -82,6 +82,8 @@ export function useBatchUpscaler() {
       workingCanvas.getContext('2d')!.drawImage(bitmap, 0, 0)
       bitmap.close()
 
+      const patchSize = pickPatchSize(getLongestSide(dimensions))
+
       if (abortCtrl.signal.aborted) return
 
       // 3. Load 2× model — used for both single-pass (2×) and multi-pass (4×)
@@ -100,7 +102,7 @@ export function useBatchUpscaler() {
       try {
         // ── Pass 1 ────────────────────────────────────────────────────────
         const pass1Base64 = await upscaler.execute(workingCanvas, {
-          patchSize: PATCH_SIZE,
+          patchSize,
           padding: 2,
           awaitNextFrame: true,
           signal: abortCtrl.signal,
@@ -121,7 +123,7 @@ export function useBatchUpscaler() {
           workingCanvas = await base64ToCanvas(pass1Base64)
 
           resultBase64 = await upscaler.execute(workingCanvas, {
-            patchSize: PATCH_SIZE,
+            patchSize,
             padding: 2,
             awaitNextFrame: true,
             signal: abortCtrl.signal,
