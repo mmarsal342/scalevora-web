@@ -24,6 +24,8 @@ interface BatchActions {
   setArtStyle: (style: ArtStyle) => void
   setPhotoQuality: (quality: PhotoQuality) => void
   clearAll: () => void
+  removeCompleted: () => void
+  retryItem: (id: string) => void
 }
 
 const initialState: BatchState = {
@@ -110,6 +112,18 @@ export const useBatchStore = create<BatchState & BatchActions>((set, get) => ({
   setArtStyle: (artStyle) => set({ artStyle }),
   setPhotoQuality: (photoQuality) => set({ photoQuality }),
   clearAll: () => set({ items: [], isRunning: false, activeId: null }),
+
+  removeCompleted: () =>
+    set((state) => ({
+      items: state.items.filter((i) => i.status !== 'done' && i.status !== 'saved'),
+    })),
+
+  retryItem: (id) =>
+    set((state) => ({
+      items: state.items.map((i) =>
+        i.id === id ? { ...i, status: 'queued', error: null, elapsedMs: null, progress: 0 } : i
+      ),
+    })),
 }))
 
 // Helper selectors

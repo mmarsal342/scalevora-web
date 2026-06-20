@@ -111,6 +111,14 @@ function QueueRow({ item, scale, autoDownload }: { item: BatchItem; scale: numbe
             ↓ Save
           </button>
         )}
+        {item.status === 'error' && (
+          <button
+            onClick={() => useBatchStore.getState().retryItem(item.id)}
+            className="border border-border px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted hover:border-accent hover:text-accent"
+          >
+            ↻ Retry
+          </button>
+        )}
         {canRemove && (
           <button
             onClick={() => removeItem(item.id)}

@@ -184,13 +184,21 @@ export async function loadModelForBatch(
   return instance
 }
 
-/** Dispose all cached instances after a batch item — frees GPU memory. */
-export async function disposeBatchModel() {
+/** Dispose all cached instances or a specific batch instance — frees GPU memory. */
+export async function disposeBatchModel(instanceToDispose?: UpscalerInstance) {
+  if (instanceToDispose?.dispose) {
+    try {
+      await instanceToDispose.dispose()
+    } catch (e) {
+      console.error('[batch] Failed to dispose specific upscaler', e)
+    }
+  }
+
   for (const instance of upscalerCache.values()) {
     try {
       if (instance.dispose) await instance.dispose()
     } catch (e) {
-      console.error('[batch] Failed to dispose upscaler', e)
+      console.error('[batch] Failed to dispose cached upscaler', e)
     }
   }
   upscalerCache.clear()

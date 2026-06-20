@@ -63,6 +63,7 @@ export function useBatchUpscaler() {
 
     updateItem(item.id, { status: 'processing', progress: 0, error: null, elapsedMs: null })
     const startedAt = performance.now()
+    let upscaler: any = null
 
     try {
       // 1. HEIC → PNG convert if needed
@@ -89,17 +90,13 @@ export function useBatchUpscaler() {
       // 3. Load 2× model — used for both single-pass (2×) and multi-pass (4×)
       const useMultiPass = scaleFactor === 4
       const modelScale = useMultiPass ? 2 : scaleFactor
-      const upscaler = await loadModelForBatch(modelScale, artStyle, photoQuality)
-
-      if (abortCtrl.signal.aborted) return
-
-      // 4. Upscale — ONE engine scope covers all passes for this item.
-      //    Using separate scopes per pass caused "Tensor is disposed" errors
-      //    because graph models (Real-CUGAN) cache tensors internally between calls,
-      //    and the first endScope() would dispose those cached tensors before pass 2.
+      
       let resultBase64: string
       tf.engine().startScope()
       try {
+        upscaler = await loadModelForBatch(modelScale, artStyle, photoQuality)
+        if (abortCtrl.signal.aborted) return
+
         // ── Pass 1 ────────────────────────────────────────────────────────
         const pass1Base64 = await upscaler.execute(workingCanvas, {
           patchSize,
@@ -166,7 +163,7 @@ export function useBatchUpscaler() {
       updateItem(item.id, { status: 'error', error: normalizeError(e) })
     } finally {
       // ALWAYS dispose model + flush GPU memory before next item
-      await disposeBatchModel()
+      await disposeBatchModel(upscaler)
     }
   }
 
