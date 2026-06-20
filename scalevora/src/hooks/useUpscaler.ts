@@ -7,6 +7,7 @@ import {
   outputFormatFor,
   pickPatchSize,
 } from '@/utils/imageUtils'
+import { normalizeError } from '@/utils/errorUtils'
 
 async function base64ToBlob(
   base64DataUrl: string,
@@ -39,6 +40,7 @@ export function useUpscaler() {
 
   const setProcessingStatus = useAppStore((s) => s.setProcessingStatus)
   const setProcessingProgress = useAppStore((s) => s.setProcessingProgress)
+  const setProcessingError = useAppStore((s) => s.setProcessingError)
   const setResult = useAppStore((s) => s.setResult)
   const setAbortController = useAppStore((s) => s.setAbortController)
 
@@ -54,6 +56,7 @@ export function useUpscaler() {
 
     setProcessingStatus('processing')
     setProcessingProgress(0)
+    setProcessingError(null)
 
     const abortController = new AbortController()
     setAbortController(abortController)
@@ -107,8 +110,10 @@ export function useUpscaler() {
         setProcessingStatus('idle')
         return
       }
+      const humanMsg = normalizeError(e)
+      setProcessingError(humanMsg)
       setProcessingStatus('error')
-      throw e
+      throw new Error(humanMsg)
     } finally {
       setAbortController(null)
       // Clean up tfjs memory to prevent tensor leaks on subsequent uploads

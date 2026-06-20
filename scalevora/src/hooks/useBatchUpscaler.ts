@@ -6,6 +6,7 @@ import { convertHeicToPng } from '@/utils/heicUtils'
 import { getDimensions, computeOutputDimensions } from '@/utils/imageUtils'
 import type { BatchItem } from '@/types'
 import * as tf from '@tensorflow/tfjs'
+import { normalizeError } from '@/utils/errorUtils'
 
 const PATCH_SIZE = 128
 
@@ -115,8 +116,7 @@ export function useBatchUpscaler() {
       }
     } catch (e) {
       if (abortCtrl.signal.aborted) return
-      const msg = e instanceof Error ? e.message : 'Upscale failed.'
-      updateItem(item.id, { status: 'error', error: msg })
+      updateItem(item.id, { status: 'error', error: normalizeError(e) })
     } finally {
       // 7. ALWAYS dispose model to free GPU memory before next item
       await disposeBatchModel()

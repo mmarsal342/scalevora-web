@@ -13,6 +13,7 @@ function formatETA(seconds: number): string {
 export function ProcessingOverlay() {
   const status = useAppStore((s) => s.processingStatus)
   const progress = useAppStore((s) => s.processingProgress)
+  const errorMsg = useAppStore((s) => s.processingError)
   const { cancelUpscale } = useUpscaler()
 
   const startedAtRef = useRef<number | null>(null)
@@ -37,7 +38,41 @@ export function ProcessingOverlay() {
     setEta(formatETA(remaining))
   }, [progress, status])
 
-  if (status !== 'processing' && status !== 'cancelling') return null
+  if (status !== 'processing' && status !== 'cancelling' && status !== 'error') return null
+
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (status === 'error') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/85 px-6 backdrop-blur-md">
+        <div className="relative w-full max-w-md border border-error/50 bg-surface p-10">
+          <span className="absolute left-2 top-2 h-3 w-3 border-l border-t border-error" />
+          <span className="absolute right-2 top-2 h-3 w-3 border-r border-t border-error" />
+          <span className="absolute bottom-2 left-2 h-3 w-3 border-b border-l border-error" />
+          <span className="absolute bottom-2 right-2 h-3 w-3 border-b border-r border-error" />
+
+          <span className="inline-flex items-center gap-3 font-mono text-[10px] uppercase tracking-widest text-error">
+            <span className="h-px w-6 bg-error" />
+            Upscale Failed
+          </span>
+
+          <p className="mt-4 font-display text-2xl font-bold tracking-tight text-text">
+            Something went wrong
+          </p>
+
+          <p className="mt-3 font-mono text-[12px] leading-relaxed text-muted">
+            {errorMsg ?? 'An unexpected error occurred. Please try again.'}
+          </p>
+
+          <button
+            onClick={() => useAppStore.getState().setProcessingStatus('idle')}
+            className="mt-8 border border-border px-5 py-3 font-mono text-xs uppercase tracking-wider text-muted hover:border-accent hover:text-text"
+          >
+            Dismiss &amp; Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/85 px-6 backdrop-blur-md">

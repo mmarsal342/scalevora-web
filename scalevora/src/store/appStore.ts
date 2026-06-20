@@ -31,6 +31,7 @@ interface AppState {
   // Processing
   processingStatus: ProcessingStatus
   processingProgress: number
+  processingError: string | null
   resultBlob: Blob | null
   resultDimensions: Dimensions | null
   abortController: AbortController | null
@@ -56,6 +57,7 @@ interface AppActions {
   setCroppedBlob: (blob: Blob | null, dimensions?: Dimensions | null) => void
 
   setProcessingStatus: (status: ProcessingStatus) => void
+  setProcessingError: (msg: string | null) => void
   setProcessingProgress: (progress: number) => void
   setResult: (blob: Blob, dimensions: Dimensions) => void
   setAbortController: (controller: AbortController | null) => void
@@ -80,6 +82,7 @@ const initialState: AppState = {
   croppedDimensions: null,
   processingStatus: 'idle',
   processingProgress: 0,
+  processingError: null,
   resultBlob: null,
   resultDimensions: null,
   abortController: null,
@@ -102,6 +105,7 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
     set({ croppedBlob, croppedDimensions }),
 
   setProcessingStatus: (processingStatus) => set({ processingStatus }),
+  setProcessingError: (processingError) => set({ processingError }),
   setProcessingProgress: (processingProgress) =>
     set((state) =>
       state.processingProgress === processingProgress
