@@ -163,7 +163,7 @@ export function Home() {
           <div className="mx-auto flex max-w-4xl flex-col items-center gap-8">
             <SectionLabel>{t('crop.label')}</SectionLabel>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <ScaleSelector />
+              <ScaleSelector inputDims={inputDims} />
               <StyleSelector value={artStyle} onChange={setArtStyle} />
             </div>
             <CropTool
@@ -187,7 +187,7 @@ export function Home() {
             />
 
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <ScaleSelector />
+              <ScaleSelector inputDims={inputDims} />
               <StyleSelector value={artStyle} onChange={setArtStyle} />
               <button
                 onClick={() => void runUpscale()}

@@ -6,26 +6,30 @@ import {
   getLongestSide,
   outputFormatFor,
   pickPatchSize,
+  applyUnsharpMask,
 } from '@/utils/imageUtils'
 import { normalizeError } from '@/utils/errorUtils'
 
-async function base64ToBlob(
-  base64DataUrl: string,
-  mimeType: string,
-  quality?: number,
-): Promise<Blob> {
-  // Round-trip through canvas to re-encode with our chosen mime/quality.
-  // Upscaler returns base64 PNG by default; for JPG output we need to recompress.
+// ---------- helpers -----------------------------------------------------------
+
+async function base64ToCanvas(base64DataUrl: string): Promise<HTMLCanvasElement> {
   const img = new Image()
   img.src = base64DataUrl
   await img.decode()
-
   const canvas = document.createElement('canvas')
   canvas.width = img.naturalWidth
   canvas.height = img.naturalHeight
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(img, 0, 0)
+  canvas.getContext('2d')!.drawImage(img, 0, 0)
+  return canvas
+}
 
+async function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality?: number,
+): Promise<Blob> {
+  // Apply post-processing sharpening before encoding
+  applyUnsharpMask(canvas)
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('toBlob returned null'))),
@@ -34,6 +38,8 @@ async function base64ToBlob(
     )
   })
 }
+
+// ---------- hook --------------------------------------------------------------
 
 export function useUpscaler() {
   const { ensureModelReady } = useModelLoader()
@@ -62,49 +68,79 @@ export function useUpscaler() {
     setAbortController(abortController)
 
     try {
-      const upscaler = await ensureModelReady(scaleFactor, artStyle)
+      // For 4× we always run 2× model twice (multi-pass).
+      // Quality is noticeably better because each pass has richer per-pixel context.
+      const useMultiPass = scaleFactor === 4
+      const modelScale = useMultiPass ? 2 : scaleFactor
 
-      // Normalize EXIF orientation before handing to upscaler. We pass an
-      // HTMLImageElement because that's what UpscalerJS expects in the browser.
+      const upscaler = await ensureModelReady(modelScale, artStyle)
+
+      // Normalize EXIF orientation
       const bitmap = await normalizedImageBitmap(sourceBlob)
       const inputDims = { width: bitmap.width, height: bitmap.height }
 
-      const normalizedCanvas = document.createElement('canvas')
-      normalizedCanvas.width = bitmap.width
-      normalizedCanvas.height = bitmap.height
-      normalizedCanvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+      let workingCanvas = document.createElement('canvas')
+      workingCanvas.width = bitmap.width
+      workingCanvas.height = bitmap.height
+      workingCanvas.getContext('2d')!.drawImage(bitmap, 0, 0)
       bitmap.close()
 
       const patchSize = pickPatchSize(getLongestSide(inputDims))
 
-      const resultBase64 = await upscaler.execute(normalizedCanvas, {
+      // ── Pass 1 (or only pass for 2×) ────────────────────────────────────
+      const pass1Base64 = await upscaler.execute(workingCanvas, {
         patchSize,
         padding: 2,
         signal: abortController.signal,
-        // Yield to the event loop between tiles. Without this, the progress
-        // callback fires hundreds of times in a microtask burst, the main
-        // thread never repaints, and React's batched setState count blows
-        // past its safety threshold.
         awaitNextFrame: true,
         progress: (amount: number) => {
-          setProcessingProgress(Math.round(amount * 100))
+          // First pass covers 0–50% for multi-pass, 0–95% for single-pass
+          // (reserve last 5% for sharpening render)
+          setProcessingProgress(useMultiPass
+            ? Math.round(amount * 48)
+            : Math.round(amount * 95))
         },
       })
 
-      if (abortController.signal.aborted) {
-        setProcessingStatus('idle')
+      if (abortController.signal.aborted) { setProcessingStatus('idle'); return }
+
+      if (!useMultiPass) {
+        // Single pass done — apply sharpening + encode
+        const outputCfg = outputFormatFor(originalFormat)
+        const resultCanvas = await base64ToCanvas(pass1Base64)
+        setProcessingProgress(98)
+        const resultBlob = await canvasToBlob(resultCanvas, outputCfg.mimeType, outputCfg.quality)
+        const outputDims = computeOutputDimensions(inputDims, scaleFactor)
+        setProcessingProgress(100)
+        setResult(resultBlob, outputDims)
         return
       }
 
-      const outputCfg = outputFormatFor(originalFormat)
-      const resultBlob = await base64ToBlob(
-        resultBase64,
-        outputCfg.mimeType,
-        outputCfg.quality,
-      )
+      // ── Pass 2 (multi-pass 4× only) ────────────────────────────────────
+      setProcessingProgress(48)
+      workingCanvas = await base64ToCanvas(pass1Base64)
 
+      const pass2Base64 = await upscaler.execute(workingCanvas, {
+        patchSize,
+        padding: 2,
+        signal: abortController.signal,
+        awaitNextFrame: true,
+        progress: (amount: number) => {
+          setProcessingProgress(48 + Math.round(amount * 47)) // 48–95%
+        },
+      })
+
+      if (abortController.signal.aborted) { setProcessingStatus('idle'); return }
+
+      // Apply sharpening + encode
+      const outputCfg = outputFormatFor(originalFormat)
+      const resultCanvas = await base64ToCanvas(pass2Base64)
+      setProcessingProgress(98)
+      const resultBlob = await canvasToBlob(resultCanvas, outputCfg.mimeType, outputCfg.quality)
       const outputDims = computeOutputDimensions(inputDims, scaleFactor)
+      setProcessingProgress(100)
       setResult(resultBlob, outputDims)
+
     } catch (e) {
       if (abortController.signal.aborted) {
         setProcessingStatus('idle')
@@ -116,7 +152,6 @@ export function useUpscaler() {
       throw new Error(humanMsg)
     } finally {
       setAbortController(null)
-      // Clean up tfjs memory to prevent tensor leaks on subsequent uploads
       await disposeModelCache()
     }
   }
@@ -124,8 +159,6 @@ export function useUpscaler() {
   function cancelUpscale(): void {
     const ctrl = useAppStore.getState().abortController
     if (!ctrl) return
-    // UpscalerJS aborts between tiles, not mid-tile — set state to
-    // 'cancelling' so the UI is honest about the delay.
     setProcessingStatus('cancelling')
     ctrl.abort()
   }

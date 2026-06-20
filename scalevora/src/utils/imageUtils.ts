@@ -72,10 +72,87 @@ export function computeOutputDimensions(
 }
 
 export function pickPatchSize(_longestSide: number): number {
-  // Use a larger patch size (128). Smaller patch sizes (like 48)
-  // create hundreds of patches for large images, which causes tf.tidy() to track
-  // too many tensors and throw "RangeError: Set maximum size exceeded".
   return 128
+}
+
+/**
+ * Applies an unsharp mask to a canvas IN-PLACE (post-upscale sharpening).
+ * Uses CSS blur filter for the blurred reference — hardware-accelerated and fast.
+ * amount: 0.0 (no effect) – 1.0 (strong). Default 0.4 is subtle but noticeable.
+ */
+export function applyUnsharpMask(
+  canvas: HTMLCanvasElement,
+  amount = 0.4,
+  radius = 1,
+): void {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const { width, height } = canvas
+
+  // Capture original pixels
+  const original = ctx.getImageData(0, 0, width, height)
+
+  // Create blurred copy via CSS filter (GPU path in most browsers)
+  const blurCanvas = document.createElement('canvas')
+  blurCanvas.width = width
+  blurCanvas.height = height
+  const blurCtx = blurCanvas.getContext('2d')!
+  blurCtx.filter = `blur(${radius}px)`
+  blurCtx.drawImage(canvas, 0, 0)
+  const blurred = blurCtx.getImageData(0, 0, width, height)
+
+  // Unsharp mask: result = clamp(orig + amount × (orig − blurred))
+  const s = original.data
+  const b = blurred.data
+  for (let i = 0; i < s.length; i += 4) {
+    s[i]     = Math.max(0, Math.min(255, s[i]     + amount * (s[i]     - b[i])))
+    s[i + 1] = Math.max(0, Math.min(255, s[i + 1] + amount * (s[i + 1] - b[i + 1])))
+    s[i + 2] = Math.max(0, Math.min(255, s[i + 2] + amount * (s[i + 2] - b[i + 2])))
+    // alpha (i+3) unchanged
+  }
+  ctx.putImageData(original, 0, 0)
+}
+
+export interface ScaleSuggestion {
+  recommended: ScaleFactor
+  x2Label: string   // e.g. "2048×1536 · FHD"
+  x4Label: string   // e.g. "4096×3072 · 4K"
+  reason: string    // one-liner hint
+}
+
+/**
+ * Given input dimensions, returns human-readable output sizes for each scale
+ * and a recommended scale factor based on the input resolution.
+ */
+export function suggestScale(input: Dimensions): ScaleSuggestion {
+  const longest = Math.max(input.width, input.height)
+
+  function qualityBadge(side: number): string {
+    if (side >= 3840) return ' · 4K'
+    if (side >= 2560) return ' · QHD'
+    if (side >= 1920) return ' · FHD'
+    if (side >= 1280) return ' · HD'
+    return ''
+  }
+
+  const w2 = input.width * 2,  h2 = input.height * 2
+  const w4 = input.width * 4,  h4 = input.height * 4
+
+  const x2Label = `${w2}×${h2}${qualityBadge(Math.max(w2, h2))}`
+  const x4Label = `${w4}×${h4}${qualityBadge(Math.max(w4, h4))}`
+
+  // Recommend 2× if input is already high-res or 4× would be huge
+  const recommend2x = longest > 1440 || Math.max(w4, h4) > 6000
+  return {
+    recommended: recommend2x ? 2 : 4,
+    x2Label,
+    x4Label,
+    reason: recommend2x
+      ? longest > 1440
+        ? 'Image is already high-res — 2× keeps quality without overloading GPU'
+        : '4× output would be very large — 2× recommended'
+      : '4× recommended for maximum sharpness',
+  }
 }
 
 /**

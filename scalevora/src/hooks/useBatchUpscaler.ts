@@ -3,15 +3,37 @@ import { useBatchStore, triggerDownload, buildBatchFilename } from '@/store/batc
 import { loadModelForBatch, disposeBatchModel } from '@/hooks/useModelLoader'
 import { normalizedImageBitmap } from '@/utils/exifUtils'
 import { convertHeicToPng } from '@/utils/heicUtils'
-import { getDimensions, computeOutputDimensions } from '@/utils/imageUtils'
+import {
+  getDimensions,
+  computeOutputDimensions,
+  applyUnsharpMask,
+} from '@/utils/imageUtils'
 import type { BatchItem } from '@/types'
 import * as tf from '@tensorflow/tfjs'
 import { normalizeError } from '@/utils/errorUtils'
 
 const PATCH_SIZE = 128
 
-// Re-encode canvas → blob with correct mime type
-async function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality?: number): Promise<Blob> {
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+async function base64ToCanvas(base64DataUrl: string): Promise<HTMLCanvasElement> {
+  const img = new Image()
+  img.src = base64DataUrl
+  await img.decode()
+  const canvas = document.createElement('canvas')
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  canvas.getContext('2d')!.drawImage(img, 0, 0)
+  return canvas
+}
+
+async function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  mimeType: string,
+  quality?: number,
+): Promise<Blob> {
+  // Apply post-processing sharpening before encoding
+  applyUnsharpMask(canvas)
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('toBlob returned null'))),
@@ -20,6 +42,8 @@ async function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality
     )
   })
 }
+
+// ── hook ─────────────────────────────────────────────────────────────────────
 
 export function useBatchUpscaler() {
   const abortRef = useRef<AbortController | null>(null)
@@ -50,56 +74,76 @@ export function useBatchUpscaler() {
       const dimensions = getDimensions(bitmap)
       updateItem(item.id, { dimensions })
 
-      // Draw to canvas (UpscalerJS expects HTMLCanvasElement)
-      const canvas = document.createElement('canvas')
-      canvas.width = bitmap.width
-      canvas.height = bitmap.height
-      canvas.getContext('2d')!.drawImage(bitmap, 0, 0)
+      let workingCanvas = document.createElement('canvas')
+      workingCanvas.width = bitmap.width
+      workingCanvas.height = bitmap.height
+      workingCanvas.getContext('2d')!.drawImage(bitmap, 0, 0)
       bitmap.close()
 
       if (abortCtrl.signal.aborted) return
 
-      // 3. Load model (fresh each time — dispose between items prevents OOM)
-      const upscaler = await loadModelForBatch(scaleFactor, artStyle)
+      // 3. Load 2× model — used for both single-pass (2×) and multi-pass (4×)
+      const useMultiPass = scaleFactor === 4
+      const modelScale = useMultiPass ? 2 : scaleFactor
+      const upscaler = await loadModelForBatch(modelScale, artStyle)
 
       if (abortCtrl.signal.aborted) return
 
-      // 4. Upscale — wrap in a TF.js engine scope so every intermediate
-      //    tensor created per-patch during inference is disposed automatically
-      //    when the scope exits. Without this, tensors accumulate across batch
-      //    items and eventually overflow the engine's internal tracking Set.
+      // 4a. First upscale pass (scope ensures per-patch tensors are freed)
       tf.engine().startScope()
-      let resultBase64: string
+      let pass1Base64: string
       try {
-        resultBase64 = await upscaler.execute(canvas, {
+        pass1Base64 = await upscaler.execute(workingCanvas, {
           patchSize: PATCH_SIZE,
           padding: 2,
           awaitNextFrame: true,
           signal: abortCtrl.signal,
           progress: (amount: number) => {
-            updateItem(item.id, { progress: Math.round(amount * 100) })
+            updateItem(item.id, {
+              progress: useMultiPass
+                ? Math.round(amount * 48)      // 0–48% for multi-pass pass 1
+                : Math.round(amount * 95),     // 0–95% for single-pass
+            })
           },
         })
       } finally {
-        // endScope disposes all tensors created within this scope
-        // (model weights are Variables and unaffected by scope cleanup)
         tf.engine().endScope()
       }
 
       if (abortCtrl.signal.aborted) return
 
-      // 5. Re-encode output blob
-      const mimeType = item.format === 'png' || item.format === 'heic' ? 'image/png' : 'image/jpeg'
-      const quality = mimeType === 'image/jpeg' ? 0.95 : undefined
+      let resultBase64: string
 
-      // Decode base64 result into a canvas then convert
-      const img = new Image()
-      img.src = resultBase64
-      await img.decode()
-      const outCanvas = document.createElement('canvas')
-      outCanvas.width = img.naturalWidth
-      outCanvas.height = img.naturalHeight
-      outCanvas.getContext('2d')!.drawImage(img, 0, 0)
+      if (useMultiPass) {
+        // 4b. Second pass for 4× multi-pass
+        updateItem(item.id, { progress: 48 })
+        workingCanvas = await base64ToCanvas(pass1Base64)
+
+        tf.engine().startScope()
+        try {
+          resultBase64 = await upscaler.execute(workingCanvas, {
+            patchSize: PATCH_SIZE,
+            padding: 2,
+            awaitNextFrame: true,
+            signal: abortCtrl.signal,
+            progress: (amount: number) => {
+              updateItem(item.id, { progress: 48 + Math.round(amount * 47) }) // 48–95%
+            },
+          })
+        } finally {
+          tf.engine().endScope()
+        }
+      } else {
+        resultBase64 = pass1Base64
+      }
+
+      if (abortCtrl.signal.aborted) return
+
+      // 5. Apply sharpening + encode output blob
+      const mimeType = item.format === 'png' || item.format === 'heic' ? 'image/png' : 'image/jpeg'
+      const quality  = mimeType === 'image/jpeg' ? 0.95 : undefined
+
+      const outCanvas = await base64ToCanvas(resultBase64)
       const resultBlob = await canvasToBlob(outCanvas, mimeType, quality)
 
       const resultDimensions = computeOutputDimensions(dimensions, scaleFactor)
@@ -109,7 +153,6 @@ export function useBatchUpscaler() {
       if (autoDownload) {
         const filename = buildBatchFilename(item.file.name, scaleFactor, item.format)
         triggerDownload(resultBlob, filename)
-        // Free blob from memory after download trigger
         updateItem(item.id, { status: 'saved', resultBlob: null })
       } else {
         updateItem(item.id, { status: 'done' })
@@ -118,7 +161,7 @@ export function useBatchUpscaler() {
       if (abortCtrl.signal.aborted) return
       updateItem(item.id, { status: 'error', error: normalizeError(e) })
     } finally {
-      // 7. ALWAYS dispose model to free GPU memory before next item
+      // ALWAYS dispose model + flush GPU memory before next item
       await disposeBatchModel()
     }
   }
@@ -131,12 +174,10 @@ export function useBatchUpscaler() {
     setRunning(true)
 
     try {
-      // Process queued items in order — sequential, never parallel
       const allItems = useBatchStore.getState().items
       for (const item of allItems) {
         if (ctrl.signal.aborted) break
         if (item.status !== 'queued') continue
-
         setActiveId(item.id)
         await processItem(item)
       }
@@ -149,7 +190,6 @@ export function useBatchUpscaler() {
 
   function cancelBatch() {
     abortRef.current?.abort()
-    // Mark any still-queued items back visually (they stay queued, not started)
     const state = useBatchStore.getState()
     state.items.forEach((item) => {
       if (item.status === 'processing') {
