@@ -93,13 +93,15 @@ export function useBatchUpscaler() {
       const modelScale = useMultiPass ? 2 : scaleFactor
       
       let resultBase64: string
-      tf.engine().startScope()
+      let scopeStarted = false
       try {
+        tf.engine().startScope()
+        scopeStarted = true
         upscaler = await loadModelForBatch(modelScale, artStyle, photoQuality)
         if (abortCtrl.signal.aborted) return
 
         // ── Pass 1 ────────────────────────────────────────────────────────
-        const pass1Base64 = await upscaler.execute(workingCanvas, {
+        let pass1Base64 = await upscaler.execute(workingCanvas, {
           patchSize,
           padding: 2,
           awaitNextFrame: true,
@@ -118,7 +120,17 @@ export function useBatchUpscaler() {
         if (useMultiPass) {
           // ── Pass 2 (4× multi-pass only) ──────────────────────────────
           updateItem(item.id, { progress: 48 })
+          
+          // FIX: Buang canvas lama sebelum reassign agar GPU backing store langsung dilepas.
+          if (workingCanvas) {
+            workingCanvas.width = 0
+            workingCanvas.height = 0
+          }
+          
           workingCanvas = await base64ToCanvas(pass1Base64)
+          // FIX: Lepas string base64 besar dari heap segera setelah decode.
+          ;(pass1Base64 as unknown as null) = null
+
 
           resultBase64 = await upscaler.execute(workingCanvas, {
             patchSize,
@@ -135,7 +147,7 @@ export function useBatchUpscaler() {
       } finally {
         // endScope cleans up ALL intermediate tensors from both passes at once.
         // Model weights (Variables) are unaffected.
-        tf.engine().endScope()
+        if (scopeStarted) tf.engine().endScope()
       }
 
       if (abortCtrl.signal.aborted) return
@@ -165,7 +177,25 @@ export function useBatchUpscaler() {
       }
     } catch (e) {
       if (abortCtrl.signal.aborted) return
-      updateItem(item.id, { status: 'error', error: normalizeError(e) })
+      
+      const errMsg = normalizeError(e)
+
+      // FIX: Auto-retry sekali kalau error adalah OOM/memory issue.
+      const isOOM =
+        typeof errMsg === 'string' &&
+        (errMsg.toLowerCase().includes('memory') ||
+          errMsg.toLowerCase().includes('too many images') ||
+          errMsg.toLowerCase().includes('out of memory') ||
+          errMsg.toLowerCase().includes('webgl'))
+
+      if (isOOM && !item.retryCount) {
+        console.warn('[ScaleVora] OOM detected, auto-retrying after extended cooldown:', errMsg)
+        updateItem(item.id, { status: 'queued', progress: 0, error: null, retryCount: 1 })
+        await new Promise(r => setTimeout(r, 8_000))
+        return processItem({ ...item, retryCount: 1 })
+      }
+
+      updateItem(item.id, { status: 'error', error: errMsg })
     } finally {
       // Forcefully clear the working canvas to free its backing store memory immediately
       if (typeof workingCanvas !== 'undefined' && workingCanvas) {
@@ -177,9 +207,10 @@ export function useBatchUpscaler() {
       // ALWAYS dispose model + flush GPU memory before next item
       await disposeBatchModel(upscaler)
 
-      // Add a generous 3-second cooldown to let the OS GPU driver actually
-      // free the released VRAM before we slam it with the next massive image.
-      await new Promise(r => setTimeout(r, 3000))
+      // FIX: Cooldown adaptif — proporsional dengan waktu proses item.
+      const elapsedSec = (performance.now() - startedAt) / 1000
+      const cooldownMs = Math.min(10_000, Math.max(3_000, Math.round(elapsedSec * 50)))
+      await new Promise(r => setTimeout(r, cooldownMs))
     }
   }
 
@@ -191,10 +222,12 @@ export function useBatchUpscaler() {
     setRunning(true)
 
     try {
-      const allItems = useBatchStore.getState().items
-      for (const item of allItems) {
+      // FIX: Baca items fresh per iterasi (bukan snapshot sekali di awal).
+      const itemCount = useBatchStore.getState().items.length
+      for (let i = 0; i < itemCount; i++) {
         if (ctrl.signal.aborted) break
-        if (item.status !== 'queued') continue
+        const item = useBatchStore.getState().items[i]
+        if (!item || item.status !== 'queued') continue
         setActiveId(item.id)
         await processItem(item)
       }

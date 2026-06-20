@@ -33,4 +33,5 @@ export interface BatchItem {
   resultDimensions: Dimensions | null
   error: string | null
   elapsedMs: number | null   // actual processing time in ms, null until done
+  retryCount?: number
 }
