@@ -76,10 +76,11 @@ export function pickPatchSize(longestSide: number): number {
     // Mobile VRAM is limited
     return longestSide <= 512 ? 256 : 128
   }
-  // Desktop WebGL/WebGPU has plenty of VRAM.
-  // Using 128px on a 1024px image causes 81+ patches, starving the GPU with CPU overhead.
-  // 512px drops this to ~4 patches, massively speeding up inference.
-  return 512
+  // Desktop WebGL/WebGPU has plenty of VRAM, but TF.js LayersModel execution
+  // is highly synchronous on the CPU dispatch side. Using 512px takes too long
+  // per patch and triggers "Browser Not Responding" lockups.
+  // 256px is the sweet spot: fewer patches than 128px, but yields frequently enough.
+  return 256
 }
 
 /**
